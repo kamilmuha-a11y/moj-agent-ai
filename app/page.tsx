@@ -96,7 +96,7 @@ export default function Home() {
   let assistantIndex = -1;
 
   return (
-    <div className="mx-auto flex h-dvh w-full max-w-[800px] flex-col p-4">
+    <div className="mx-auto flex w-full min-h-0 max-w-[800px] flex-1 flex-col p-4">
       <header className="flex items-center gap-2 border-b border-[#333] pb-4">
         <span className="text-2xl">📦</span>
         <div>

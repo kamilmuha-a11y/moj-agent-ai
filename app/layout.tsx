@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="flex h-dvh flex-col">
+        <nav className="mx-auto flex w-full max-w-[800px] shrink-0 gap-4 px-4 pt-3 text-sm text-[#888]">
+          <Link href="/" className="hover:text-[#ededed]">
+            🤖 Chat
+          </Link>
+          <Link href="/think" className="hover:text-[#ededed]">
+            🧠 Myślenie
+          </Link>
+        </nav>
+        {children}
+      </body>
     </html>
   );
 }
