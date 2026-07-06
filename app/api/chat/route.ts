@@ -6,7 +6,7 @@ type ModelKey = "flash" | "pro";
 
 const MODEL_MAP: Record<ModelKey, string> = {
   flash: "gemini-3.5-flash",
-  pro: "gemini-3.1-pro-preview",
+  pro: "gemini-2.5-pro",
 };
 
 const PERSONA = `# Marta Wiśniewska — Specjalistka ds. Compliance w Hemmersbach
