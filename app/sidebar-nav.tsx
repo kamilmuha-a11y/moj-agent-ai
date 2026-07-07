@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Chat", icon: "🤖" },
   { href: "/think", label: "Myślenie", icon: "🧠" },
   { href: "/fewshot", label: "Słownik", icon: "📚" },
+  { href: "/format", label: "Formater", icon: "📐" },
 ];
 
 export function SidebarNav() {
