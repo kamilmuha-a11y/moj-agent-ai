@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0a0a0a;
-  --foreground: #ededed;
+  --background: #0a0e17;
+  --foreground: #e7ebf3;
+  --sidebar-bg: #0d1220;
+  --panel-bg: #121828;
+  --panel-alt: #182034;
+  --border: #232b3d;
+  --text-secondary: #8b93a7;
+  --accent: #4f8cff;
+  --accent-strong: #3b6fe0;
+  --accent-soft: rgba(79, 140, 255, 0.14);
+  --success: #34d399;
 }
 
 @theme inline {
@@ -18,4 +27,18 @@ body {
     -apple-system,
     "Segoe UI",
     sans-serif;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
 }
