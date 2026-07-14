@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pl" className="h-full antialiased">
-      <body className="flex h-dvh flex-col overflow-hidden sm:flex-row">
+      <body className="flex h-dvh flex-col overflow-hidden">
         <SidebarNav />
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {children}
