@@ -4,26 +4,26 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Dashboard", icon: "🏠" },
-  { href: "/agent", label: "Agent", icon: "🤖", highlight: true },
-  { href: "/react", label: "ReAct", icon: "🔄" },
-  { href: "/travel", label: "Podróże", icon: "✈️" },
-  { href: "/chat", label: "Chat", icon: "💬" },
-  { href: "/think", label: "Myślenie", icon: "🧠" },
-  { href: "/fewshot", label: "Słownik", icon: "📚" },
-  { href: "/format", label: "Formater", icon: "📐" },
-  { href: "/search", label: "Szukaj", icon: "🌐" },
-  { href: "/generate", label: "Grafiki", icon: "🎨" },
-  { href: "/vision", label: "Vision", icon: "👁️" },
+  { href: "/", label: "Dashboard" },
+  { href: "/agent", label: "Agent", highlight: true },
+  { href: "/react", label: "ReAct" },
+  { href: "/travel", label: "Podróże" },
+  { href: "/chat", label: "Chat" },
+  { href: "/think", label: "Myślenie" },
+  { href: "/fewshot", label: "Słownik" },
+  { href: "/format", label: "Formater" },
+  { href: "/search", label: "Szukaj" },
+  { href: "/generate", label: "Grafiki" },
+  { href: "/vision", label: "Vision" },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--sidebar-bg)] px-3 py-2">
-      <span className="mr-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-[var(--accent-soft)] text-base">
-        📦
+    <nav className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-2.5">
+      <span className="mr-2 shrink-0 text-sm font-bold uppercase tracking-[0.12em] text-[var(--foreground)]">
+        Marta AI
       </span>
 
       {NAV_ITEMS.map((item) => {
@@ -32,16 +32,15 @@ export function SidebarNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            className={`shrink-0 rounded-md border px-3 py-1.5 text-xs font-semibold uppercase tracking-wide transition-colors ${
               active
-                ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+                ? "border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]"
                 : item.highlight
-                  ? "bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/15"
-                  : "text-[var(--text-secondary)] hover:bg-[var(--panel-bg)] hover:text-[var(--foreground)]"
+                  ? "border-[var(--success)]/40 bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/15"
+                  : "border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent)] hover:text-[var(--foreground)]"
             }`}
           >
-            <span>{item.icon}</span>
-            <span className="hidden sm:inline">{item.label}</span>
+            {item.label}
           </Link>
         );
       })}
