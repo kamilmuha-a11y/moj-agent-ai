@@ -63,9 +63,9 @@ export default function Travel() {
   return (
     <div className="mx-auto flex w-full min-h-0 max-w-5xl flex-1 gap-4 overflow-hidden p-6">
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
-        <header className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
+        <header className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
           <div className="flex items-center gap-3">
-            <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-2xl">
+            <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--accent-soft)] text-2xl">
               ✈️
             </span>
             <div>
@@ -84,7 +84,7 @@ export default function Travel() {
         </header>
 
         {messages.length === 0 && (
-          <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
+          <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-4">
             {SCENARIOS.map((s) => (
               <button
                 key={s}
@@ -98,13 +98,13 @@ export default function Travel() {
           </div>
         )}
 
-        <div className="flex flex-1 flex-col overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
+        <div className="flex flex-1 flex-col overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-4">
           <div className="flex-1 space-y-3">
             {messages.map((message) => {
               if (message.role === "user") {
                 return (
                   <div key={message.id} className="flex justify-end">
-                    <div className="max-w-[80%] whitespace-pre-wrap rounded-2xl bg-[var(--accent)] px-4 py-2.5 text-white">
+                    <div className="max-w-[80%] whitespace-pre-wrap rounded-lg bg-[var(--accent)] px-4 py-2.5 text-white">
                       {message.parts.map((part, i) =>
                         part.type === "text" ? <span key={i}>{part.text}</span> : null,
                       )}
@@ -167,7 +167,7 @@ export default function Travel() {
                       </div>
                     )}
 
-                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-relaxed">
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-3 text-sm leading-relaxed">
                       {message.parts.map((part, i) =>
                         part.type === "text" ? (
                           <ReactMarkdown
@@ -192,7 +192,7 @@ export default function Travel() {
 
             {isLoading && lastMessage?.role === "user" && (
               <div className="flex justify-start">
-                <div className="max-w-[75%] rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-2.5 text-[var(--text-secondary)]">
+                <div className="max-w-[75%] rounded-lg border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-2.5 text-[var(--text-secondary)]">
                   🧭 Planuję podróż...
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function Travel() {
         </div>
 
         {error && !isLoading && (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
             ⚠️ {error.message}
           </div>
         )}
@@ -213,12 +213,12 @@ export default function Travel() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Np. Lecę do Barcelony na weekend..."
-            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+            className="flex-1 rounded-md border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
+            className="rounded-md bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
           >
             Wyślij
           </button>

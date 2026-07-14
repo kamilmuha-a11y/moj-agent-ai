@@ -24,7 +24,7 @@ export function SidebarNav() {
     <>
       <aside className="hidden w-64 shrink-0 flex-col border-r border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-6 sm:flex">
         <div className="mb-8 flex items-center gap-3 px-2">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-xl">
+          <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[var(--accent-soft)] text-xl">
             📦
           </span>
           <div>

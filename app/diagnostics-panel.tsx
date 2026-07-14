@@ -36,7 +36,7 @@ export function DiagnosticsPanel({
         : "— Oczekuję na zadanie";
 
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4 text-xs">
+    <div className="rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-4 text-xs">
       <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-[var(--foreground)]">
         🛡️ Diagnostyka
       </p>

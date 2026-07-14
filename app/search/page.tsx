@@ -39,9 +39,9 @@ export default function Search() {
 
   return (
     <div className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 flex-col gap-4 overflow-hidden p-6">
-      <header className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
+      <header className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
         <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-2xl">
+          <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[var(--accent-soft)] text-2xl">
             🌐
           </span>
           <div>
@@ -60,7 +60,7 @@ export default function Search() {
       </header>
 
       {messages.length === 0 && (
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
+        <div className="flex flex-wrap gap-2 rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-4">
           {EXAMPLE_QUESTIONS.map((q) => (
             <button
               key={q}
@@ -78,10 +78,10 @@ export default function Search() {
         onDragOver={attachment.handleDragOver}
         onDragLeave={attachment.handleDragLeave}
         onDrop={attachment.handleDrop}
-        className="relative flex flex-1 flex-col overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4"
+        className="relative flex flex-1 flex-col overflow-y-auto rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-4"
       >
         {attachment.isDragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] text-sm font-medium text-[var(--accent)]">
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] text-sm font-medium text-[var(--accent)]">
             Upuść obraz
           </div>
         )}
@@ -99,7 +99,7 @@ export default function Search() {
                 }`}
               >
                 <div
-                  className={`max-w-[75%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 ${
+                  className={`max-w-[75%] whitespace-pre-wrap rounded-lg px-4 py-2.5 ${
                     message.role === "user"
                       ? "bg-[var(--accent)] text-white"
                       : "border border-[var(--border)] bg-[var(--panel-alt)]"
@@ -143,7 +143,7 @@ export default function Search() {
 
           {isLoading && (
             <div className="flex justify-start">
-              <div className="max-w-[75%] rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-2.5 text-[var(--text-secondary)]">
+              <div className="max-w-[75%] rounded-lg border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-2.5 text-[var(--text-secondary)]">
                 Szukam...
               </div>
             </div>
@@ -158,7 +158,7 @@ export default function Search() {
       )}
 
       {attachment.image && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-3">
+        <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={attachment.image.url}
@@ -179,7 +179,7 @@ export default function Search() {
       )}
 
       {error && !isLoading && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
           ⚠️ {error.message}
         </div>
       )}
@@ -195,7 +195,7 @@ export default function Search() {
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+          className="rounded-md border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
         >
           📎
         </button>
@@ -204,12 +204,12 @@ export default function Search() {
           onChange={(e) => setInput(e.target.value)}
           onPaste={attachment.handlePaste}
           placeholder="Zapytaj o cokolwiek aktualnego..."
-          className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
+          className="flex-1 rounded-md border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
         />
         <button
           type="submit"
           disabled={isLoading || (!input.trim() && !attachment.image)}
-          className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
+          className="rounded-md bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
         >
           Wyślij
         </button>

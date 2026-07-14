@@ -59,7 +59,7 @@ function daysUntil(dateStr: string): number {
 
 function SkeletonCard({ className = "" }: { className?: string }) {
   return (
-    <div className={`rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-5 ${className}`}>
+    <div className={`rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-5 ${className}`}>
       <div className="skeleton mb-3 h-4 w-24 rounded bg-[var(--panel-alt)]" />
       <div className="skeleton mb-2 h-8 w-32 rounded bg-[var(--panel-alt)]" />
       <div className="skeleton h-4 w-40 rounded bg-[var(--panel-alt)]" />
@@ -108,7 +108,7 @@ export default function Dashboard() {
 
   return (
     <div className="mx-auto flex w-full min-h-0 max-w-5xl flex-1 flex-col gap-5 overflow-y-auto p-6">
-      <header className="card-fade-in flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
+      <header className="card-fade-in flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
         <div>
           <h1 className="text-lg font-semibold text-[var(--foreground)]">
             {greeting()}!
@@ -122,7 +122,7 @@ export default function Dashboard() {
           onClick={() => load(true)}
           disabled={refreshing}
           title="Odśwież dane"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] text-lg text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+          className="flex h-10 w-10 items-center justify-center rounded-md border border-[var(--border)] bg-[var(--panel-alt)] text-lg text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
         >
           <span className={refreshing ? "animate-spin" : ""}>🔄</span>
         </button>
@@ -133,14 +133,7 @@ export default function Dashboard() {
         {loading ? (
           <SkeletonCard />
         ) : (
-          <div
-            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(37,99,235,0.18), rgba(6,182,212,0.10))",
-              backdropFilter: "blur(8px)",
-            }}
-          >
+          <div className="card-fade-in rounded-lg border border-[var(--border)] border-l-2 border-l-cyan-400 bg-[var(--panel-bg)] p-5 shadow-sm">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">
               🌤️ Pogoda
             </p>
@@ -179,14 +172,7 @@ export default function Dashboard() {
         {loading ? (
           <SkeletonCard />
         ) : (
-          <div
-            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.10))",
-              backdropFilter: "blur(8px)",
-            }}
-          >
+          <div className="card-fade-in rounded-lg border border-[var(--border)] border-l-2 border-l-emerald-400 bg-[var(--panel-bg)] p-5 shadow-sm">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
               💶 Kursy walut
             </p>
@@ -226,14 +212,7 @@ export default function Dashboard() {
         {loading ? (
           <SkeletonCard />
         ) : (
-          <div
-            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(249,115,22,0.18), rgba(245,158,11,0.10))",
-              backdropFilter: "blur(8px)",
-            }}
-          >
+          <div className="card-fade-in rounded-lg border border-[var(--border)] border-l-2 border-l-amber-400 bg-[var(--panel-bg)] p-5 shadow-sm">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">
               📅 Nadchodzące święta
             </p>
@@ -271,14 +250,7 @@ export default function Dashboard() {
         )}
 
         {/* Quick actions card */}
-        <div
-          className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
-          style={{
-            background:
-              "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.10))",
-            backdropFilter: "blur(8px)",
-          }}
-        >
+        <div className="card-fade-in rounded-lg border border-[var(--border)] border-l-2 border-l-fuchsia-400 bg-[var(--panel-bg)] p-5 shadow-sm">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-fuchsia-300">
             🤖 Szybkie akcje
           </p>
@@ -287,7 +259,7 @@ export default function Dashboard() {
               <Link
                 key={action.label}
                 href={action.href}
-                className="rounded-lg border border-[var(--border)] bg-[var(--panel-bg)]/60 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--panel-alt)]"
+                className="rounded-lg border border-[var(--border)] bg-[var(--panel-alt)] px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)]"
               >
                 {action.emoji} {action.label}
               </Link>
