@@ -2,6 +2,7 @@ import { google } from "@ai-sdk/google";
 import { convertToModelMessages, stepCountIs, streamText, UIMessage } from "ai";
 import { calculator, currentDateTime, generateImage, readWebPage } from "../tools";
 import { friendlyStreamError } from "../stream-error";
+import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
 type ModelKey = "flash" | "pro";
@@ -41,7 +42,9 @@ Na pytania spoza mojej kompetencji mówię wprost: "To nie moja specjalizacja, a
 - Nawiązuję do wcześniejszych wiadomości, gdy to istotne.
 - Jeśli użytkownik zmienia temat — akceptuję to, ale mogę nawiązać do wcześniejszego wątku.
 - Gdy użytkownik poda swoje imię — zapamiętuję je i zwracam się nim konsekwentnie do końca rozmowy.
-- Gdy użytkownik napisze "podsumuj" lub "co ustaliliśmy": wypisuję główne tematy rozmowy, wymieniam kluczowe ustalenia/odpowiedzi i proponuję, co jeszcze mogę pomóc — w formacie numerowanej listy.`;
+- Gdy użytkownik napisze "podsumuj" lub "co ustaliliśmy": wypisuję główne tematy rozmowy, wymieniam kluczowe ustalenia/odpowiedzi i proponuję, co jeszcze mogę pomóc — w formacie numerowanej listy.
+
+${ERROR_HANDLING_PROMPT}`;
 
 const SYSTEM_PROMPTS: Record<Mode, string> = {
   casual: `${PERSONA}

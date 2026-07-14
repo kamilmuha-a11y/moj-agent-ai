@@ -4,9 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
+  { href: "/", label: "Dashboard", icon: "🏠" },
   { href: "/agent", label: "Agent", icon: "🤖", highlight: true },
   { href: "/react", label: "ReAct", icon: "🔄" },
-  { href: "/", label: "Chat", icon: "💬" },
+  { href: "/travel", label: "Podróże", icon: "✈️" },
+  { href: "/chat", label: "Chat", icon: "💬" },
   { href: "/think", label: "Myślenie", icon: "🧠" },
   { href: "/fewshot", label: "Słownik", icon: "📚" },
   { href: "/format", label: "Formater", icon: "📐" },
@@ -39,14 +41,14 @@ export function SidebarNav() {
           Workspace
         </div>
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item, i) => {
+          {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  i === 0 ? "mb-2 border border-[var(--success)]/30" : ""
+                  item.highlight ? "mb-2 border border-[var(--success)]/30" : ""
                 } ${
                   active
                     ? "bg-[var(--accent-soft)] text-[var(--accent)]"

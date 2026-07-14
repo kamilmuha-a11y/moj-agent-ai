@@ -13,6 +13,7 @@ import {
   searchWikipedia,
 } from "../tools";
 import { friendlyStreamError } from "../stream-error";
+import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
 
 const SYSTEM_PROMPT = `Jesteś autonomicznym agentem. Gdy dostajesz ZADANIE (nie pytanie), MUSISZ je zrealizować krok po kroku.
 
@@ -45,7 +46,9 @@ Cytuj źródła (API, Wikipedia, Google).
 - NIE zgaduj — jeśli potrzebujesz danych, UŻYJ narzędzia
 - Maksymalnie 5 głównych kroków
 - Jeśli narzędzie zwróci błąd — spróbuj inaczej lub poinformuj
-- ŁĄCZ dane z wielu narzędzi w spójną odpowiedź`;
+- ŁĄCZ dane z wielu narzędzi w spójną odpowiedź
+
+${ERROR_HANDLING_PROMPT}`;
 
 export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();

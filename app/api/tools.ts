@@ -6,6 +6,23 @@ const genAI = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
 });
 
+export async function fetchWithTimeout(url: string, timeoutMs = 5000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function describeFetchError(err: unknown, context: string): string {
+  if (err instanceof Error && err.name === "AbortError") {
+    return `Timeout — ${context} nie odpowiedział w 5 sekund. Spróbuj ponownie.`;
+  }
+  return `Błąd połączenia (${context}): ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+}
+
 export const readWebPage = tool({
   description:
     "Pobiera i czyta zawartość strony internetowej. Używaj gdy użytkownik poda URL lub gdy chcesz przeczytać artykuł/stronę znalezioną w wyszukiwarce.",
@@ -13,14 +30,12 @@ export const readWebPage = tool({
     url: z.string().describe("Pełny adres URL strony do przeczytania"),
   }),
   execute: async ({ url }) => {
+    if (!url.trim()) return "Podaj adres URL strony do przeczytania.";
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
+      const res = await fetchWithTimeout(url);
 
       if (!res.ok) {
-        return `Nie udało się pobrać strony — serwer zwrócił status ${res.status}.`;
+        return `API zwróciło błąd ${res.status}. Sprawdź adres URL.`;
       }
 
       const html = await res.text();
@@ -35,10 +50,7 @@ export const readWebPage = tool({
 
       return text.slice(0, 3000) || "Strona nie zawiera tekstu do odczytania.";
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return "Strona nie odpowiedziała w ciągu 5 sekund (timeout).";
-      }
-      return `Nie udało się wczytać strony: ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+      return describeFetchError(err, "serwer strony");
     }
   },
 });
@@ -53,16 +65,16 @@ export const calculator = tool({
   }),
   execute: async ({ expression }) => {
     if (!/^[0-9+\-*/().\s]+$/.test(expression)) {
-      return "Nieprawidłowe wyrażenie — dozwolone są tylko cyfry i operatory + - * / ( ).";
+      return "Wyrażenie zawiera niedozwolone znaki — dozwolone są tylko cyfry i operatory + - * / ( ).";
     }
     try {
       const result = Function(`"use strict"; return (${expression})`)();
       if (typeof result !== "number" || !Number.isFinite(result)) {
-        return "Nie udało się obliczyć wyrażenia.";
+        return `Nie mogę obliczyć: ${expression}`;
       }
       return `${expression} = ${result}`;
     } catch {
-      return "Nie udało się obliczyć wyrażenia.";
+      return `Nie mogę obliczyć: ${expression}`;
     }
   },
 });
@@ -148,23 +160,26 @@ export const getWeather = tool({
     city: z.string().describe("Nazwa miasta, np. 'Warszawa'"),
   }),
   execute: async ({ city }) => {
+    if (!city.trim()) return "Podaj nazwę miasta.";
     try {
-      const geoRes = await fetch(
+      const geoRes = await fetchWithTimeout(
         `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=pl`,
       );
+      if (!geoRes.ok) return `API zwróciło błąd ${geoRes.status}. Sprawdź parametry.`;
       const geo = await geoRes.json();
       const place = geo.results?.[0];
-      if (!place) return `Nie znaleziono miasta "${city}".`;
+      if (!place) return `Nie znalazłem miasta "${city}". Sprawdź pisownię.`;
 
-      const weatherRes = await fetch(
+      const weatherRes = await fetchWithTimeout(
         `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,weather_code,wind_speed_10m`,
       );
+      if (!weatherRes.ok) return `API zwróciło błąd ${weatherRes.status}. Sprawdź parametry.`;
       const weather = await weatherRes.json();
       const c = weather.current;
       const desc = WEATHER_CODES[c.weather_code] ?? "nieznane warunki";
       return `Pogoda w ${place.name} (${place.country}): ${c.temperature_2m}°C, ${desc}, wiatr ${c.wind_speed_10m} km/h.`;
     } catch (err) {
-      return `Nie udało się pobrać pogody dla "${city}": ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+      return describeFetchError(err, "serwer pogodowy");
     }
   },
 });
@@ -176,39 +191,55 @@ export const getExchangeRate = tool({
     currency: z.string().describe("Kod waluty ISO, np. 'EUR', 'USD', 'CHF'"),
   }),
   execute: async ({ currency }) => {
+    const code = currency.trim().toUpperCase();
+    if (!/^[A-Z]{3}$/.test(code)) {
+      return "Podaj 3-literowy kod waluty (np. EUR, USD).";
+    }
     try {
-      const code = currency.trim().toUpperCase();
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `https://api.frankfurter.dev/v1/latest?base=${code}&symbols=PLN`,
       );
-      if (!res.ok) return `Nie udało się pobrać kursu dla waluty "${code}".`;
+      if (!res.ok) {
+        return `Waluta "${code}" nie jest obsługiwana. Popularne: EUR, USD, GBP, CHF.`;
+      }
       const data = await res.json();
       const rate = data.rates?.PLN;
-      if (!rate) return `Brak kursu dla waluty "${code}".`;
+      if (!rate) return `Waluta "${code}" nie jest obsługiwana. Popularne: EUR, USD, GBP, CHF.`;
       return `1 ${code} = ${rate} PLN (kurs z ${data.date}).`;
     } catch (err) {
-      return `Nie udało się pobrać kursu: ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+      return describeFetchError(err, "serwer kursów walut");
     }
   },
 });
 
 export const getHolidays = tool({
   description:
-    "Zwraca listę świąt publicznych w Polsce dla podanego roku (domyślnie bieżący).",
+    "Zwraca listę świąt publicznych dla podanego kraju (2-literowy kod ISO, np. PL, DE, US) i roku (domyślnie bieżący, domyślny kraj: PL).",
   inputSchema: z.object({
+    country: z
+      .string()
+      .optional()
+      .describe("2-literowy kod kraju ISO, np. 'PL', 'DE', 'US'. Domyślnie 'PL'."),
     year: z.number().optional().describe("Rok, np. 2026. Domyślnie bieżący rok."),
   }),
-  execute: async ({ year }) => {
+  execute: async ({ country, year }) => {
+    const code = (country ?? "PL").trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(code)) {
+      return "Podaj 2-literowy kod kraju (np. PL, DE, US).";
+    }
     const y = year ?? new Date().getFullYear();
     try {
-      const res = await fetch(
-        `https://date.nager.at/api/v3/PublicHolidays/${y}/PL`,
+      const res = await fetchWithTimeout(
+        `https://date.nager.at/api/v3/PublicHolidays/${y}/${code}`,
       );
-      if (!res.ok) return `Nie udało się pobrać świąt dla roku ${y}.`;
+      if (!res.ok) {
+        return `Nie znalazłem świąt dla kraju "${code}". Popularne: PL, DE, US, GB, FR.`;
+      }
       const holidays: { date: string; localName: string }[] = await res.json();
+      if (holidays.length === 0) return `Brak zarejestrowanych świąt dla kraju "${code}" w ${y} roku.`;
       return holidays.map((h) => `${h.date} — ${h.localName}`).join("\n");
     } catch (err) {
-      return `Nie udało się pobrać świąt: ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+      return describeFetchError(err, "serwer świąt");
     }
   },
 });
@@ -219,21 +250,24 @@ export const searchWikipedia = tool({
     query: z.string().describe("Fraza do wyszukania w Wikipedii"),
   }),
   execute: async ({ query }) => {
+    if (!query.trim()) return "Podaj hasło do wyszukania w Wikipedii.";
     try {
-      const searchRes = await fetch(
+      const searchRes = await fetchWithTimeout(
         `https://pl.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&origin=*`,
       );
+      if (!searchRes.ok) return `API zwróciło błąd ${searchRes.status}. Sprawdź parametry.`;
       const searchData = await searchRes.json();
       const title = searchData.query?.search?.[0]?.title;
-      if (!title) return `Nie znaleziono artykułu Wikipedii dla "${query}".`;
+      if (!title) return `Nie znalazłem artykułu Wikipedii dla "${query}".`;
 
-      const summaryRes = await fetch(
+      const summaryRes = await fetchWithTimeout(
         `https://pl.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`,
       );
+      if (!summaryRes.ok) return `API zwróciło błąd ${summaryRes.status}. Sprawdź parametry.`;
       const summary = await summaryRes.json();
       return `${summary.title}: ${summary.extract ?? "brak streszczenia"} (https://pl.wikipedia.org/wiki/${encodeURIComponent(title)})`;
     } catch (err) {
-      return `Nie udało się wyszukać w Wikipedii: ${err instanceof Error ? err.message : "nieznany błąd"}.`;
+      return describeFetchError(err, "serwer Wikipedii");
     }
   },
 });

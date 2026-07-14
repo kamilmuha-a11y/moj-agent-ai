@@ -1,368 +1,300 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
-import { useImageAttachment } from "./useImageAttachment";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
-type Mode = "casual" | "ekspert" | "kreatywny";
-type ModelKey = "flash" | "pro";
+type WeatherData =
+  | {
+      city: string;
+      country: string;
+      temperature: number;
+      description: string;
+      wind: number;
+      humidity: number;
+    }
+  | { error: string };
 
-const MODES: { key: Mode; label: string; emoji: string }[] = [
-  { key: "casual", label: "Casual", emoji: "💬" },
-  { key: "ekspert", label: "Ekspert", emoji: "🎓" },
-  { key: "kreatywny", label: "Kreatywny", emoji: "🎨" },
-];
+type RateData = { code: string; rate: number; date: string } | { code: string; error: string };
 
-const MODE_BADGE_STYLES: Record<Mode, string> = {
-  casual: "bg-[#2a3142] text-[#c3cad8]",
-  ekspert: "bg-[#1e3a5f] text-[#9ecbff]",
-  kreatywny: "bg-[#3a1e5f] text-[#d3b3ff]",
+type Holiday = { date: string; name: string };
+
+type DashboardData = {
+  weather: WeatherData;
+  rates: RateData[];
+  holidays: Holiday[] | { error: string };
+  now: string;
+  fetchedAt: number;
 };
 
-const MODELS: { key: ModelKey; label: string; emoji: string }[] = [
-  { key: "flash", label: "Flash", emoji: "⚡" },
-  { key: "pro", label: "Pro", emoji: "🧠" },
+const QUICK_ACTIONS = [
+  { href: "/travel", label: "Zaplanuj podróż", emoji: "🌍" },
+  { href: "/react?prompt=" + encodeURIComponent("Porównaj kursy EUR, USD, GBP, CHF"), label: "Porównaj waluty", emoji: "📊" },
+  { href: "/react", label: "Agent ReAct", emoji: "🔄" },
+  { href: "/chat", label: "Chat z agentem", emoji: "💬" },
+  { href: "/think", label: "Tryb myślenia", emoji: "🧠" },
+  { href: "/fewshot", label: "Słownik AI", emoji: "📖" },
 ];
 
-const EXAMPLE_QUESTIONS = [
-  "Jak rozliczyć VAT przy imporcie towarów spoza UE?",
-  "Co potrzebuję do założenia magazynu partnerskiego za granicą?",
-  "Jakie dokumenty celne są wymagane przy eksporcie do UK?",
-  "Jak wygląda proces odprawy celnej krok po kroku?",
-];
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000;
 
-export default function Home() {
-  const { messages, sendMessage, setMessages, status, error } = useChat();
-  const [input, setInput] = useState("");
-  const [mode, setMode] = useState<Mode>("casual");
-  const [turnModes, setTurnModes] = useState<Mode[]>([]);
-  const [model, setModel] = useState<ModelKey>("flash");
-  const [turnModels, setTurnModels] = useState<ModelKey[]>([]);
-  const [contextOpen, setContextOpen] = useState(true);
-  const [copied, setCopied] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const attachment = useImageAttachment();
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 5) return "🌙 Dobry wieczór";
+  if (hour < 12) return "🌅 Dzień dobry";
+  if (hour < 18) return "☀️ Dzień dobry";
+  return "🌙 Dobry wieczór";
+}
 
-  const isLoading = status === "submitted" || status === "streaming";
+function formatUpdatedAt(ts: number | null): string {
+  if (!ts) return "";
+  return new Date(ts).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+}
 
-  const approxTokens = Math.round(
-    messages.reduce(
-      (sum, m) =>
-        sum +
-        m.parts.reduce(
-          (s, p) => s + (p.type === "text" ? p.text.length : 0),
-          0,
-        ),
-      0,
-    ) / 4,
+function daysUntil(dateStr: string): number {
+  const target = new Date(dateStr + "T00:00:00");
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
+function SkeletonCard({ className = "" }: { className?: string }) {
+  return (
+    <div className={`rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-5 ${className}`}>
+      <div className="skeleton mb-3 h-4 w-24 rounded bg-[var(--panel-alt)]" />
+      <div className="skeleton mb-2 h-8 w-32 rounded bg-[var(--panel-alt)]" />
+      <div className="skeleton h-4 w-40 rounded bg-[var(--panel-alt)]" />
+    </div>
   );
+}
+
+export default function Dashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const load = useCallback(async (isManualRefresh = false) => {
+    if (isManualRefresh) setRefreshing(true);
+    try {
+      const res = await fetch("/api/dashboard-data");
+      const json: DashboardData = await res.json();
+      setData(json);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+    const interval = setInterval(() => load(), REFRESH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [load]);
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if ((!input.trim() && !attachment.image) || isLoading) return;
-    setTurnModes((prev) => [...prev, mode]);
-    setTurnModels((prev) => [...prev, model]);
-    sendMessage(
-      {
-        text: input,
-        files: attachment.image
-          ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
-          : undefined,
-      },
-      { body: { mode, model } },
-    );
-    setInput("");
-    attachment.clear();
-  }
-
-  function handleNewConversation() {
-    setMessages([]);
-    setTurnModes([]);
-    setTurnModels([]);
-  }
-
-  async function handleExport() {
-    const text = messages
-      .map((m) => {
-        const content = m.parts
-          .filter((p) => p.type === "text")
-          .map((p) => p.text)
-          .join("");
-        return `${m.role === "user" ? "User" : "Agent"}: ${content}`;
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dashboard-data")
+      .then((res) => res.json())
+      .then((json: DashboardData) => {
+        if (!cancelled) setData(json);
       })
-      .join("\n");
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard permission denied — silently ignore, button stays as-is
-    }
-  }
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  let assistantIndex = -1;
+  const updatedLabel = formatUpdatedAt(data?.fetchedAt ?? null);
 
   return (
-    <div className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 flex-col gap-4 overflow-hidden p-6">
-      <header className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-2xl">
-            📦
-          </span>
-          <div>
-            <h1 className="text-lg font-semibold text-[var(--foreground)]">
-              Marta Wiśniewska — Specjalistka ds. Compliance
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Ekspertka od customs compliance, VAT i magazynów partnerskich. Zapytaj mnie o...
-            </p>
-          </div>
+    <div className="mx-auto flex w-full min-h-0 max-w-5xl flex-1 flex-col gap-5 overflow-y-auto p-6">
+      <header className="card-fade-in flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
+        <div>
+          <h1 className="text-lg font-semibold text-[var(--foreground)]">
+            {greeting()}!
+          </h1>
+          <p className="text-sm text-[var(--text-secondary)]">
+            {data?.now ?? "Ładowanie daty..."}
+          </p>
         </div>
-        <span className="hidden shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--panel-alt)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] sm:flex">
-          <span className="h-2 w-2 rounded-full bg-[var(--success)]" />
-          Online
-        </span>
+        <button
+          type="button"
+          onClick={() => load(true)}
+          disabled={refreshing}
+          title="Odśwież dane"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] text-lg text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
+        >
+          <span className={refreshing ? "animate-spin" : ""}>🔄</span>
+        </button>
       </header>
 
-      {messages.length === 0 && (
-        <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
-          {EXAMPLE_QUESTIONS.map((q) => (
-            <button
-              key={q}
-              type="button"
-              onClick={() => setInput(q)}
-              className="rounded-lg border border-[var(--border)] bg-[var(--panel-alt)] px-3 py-1.5 text-left text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-sm">
-        <button
-          type="button"
-          onClick={() => setContextOpen((open) => !open)}
-          className="flex w-full items-center justify-between text-[var(--text-secondary)]"
-        >
-          <span className="font-medium text-[var(--foreground)]">
-            Kontekst rozmowy {contextOpen ? "▾" : "▸"}
-          </span>
-          <span className="flex gap-3">
-            <span className="rounded-md bg-[var(--panel-alt)] px-2 py-0.5 text-xs">
-              Wiadomości: {messages.length}
-            </span>
-            <span className="rounded-md bg-[var(--panel-alt)] px-2 py-0.5 text-xs">
-              ~Tokeny: {approxTokens}
-            </span>
-          </span>
-        </button>
-        {contextOpen && (
-          <div className="mt-3 flex gap-2 border-t border-[var(--border)] pt-3">
-            <button
-              type="button"
-              onClick={handleNewConversation}
-              disabled={messages.length === 0}
-              className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
-            >
-              🗑 Nowa rozmowa
-            </button>
-            <button
-              type="button"
-              onClick={handleExport}
-              disabled={messages.length === 0}
-              className="rounded-lg border border-[var(--border)] px-3 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)] disabled:opacity-40"
-            >
-              {copied ? "Skopiowano!" : "📋 Eksportuj rozmowę"}
-            </button>
-          </div>
-        )}
-      </div>
-
-      <div
-        onDragOver={attachment.handleDragOver}
-        onDragLeave={attachment.handleDragLeave}
-        onDrop={attachment.handleDrop}
-        className="relative flex flex-1 flex-col overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4"
-      >
-        {attachment.isDragging && (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] text-sm font-medium text-[var(--accent)]">
-            Upuść obraz
-          </div>
-        )}
-        <div className="flex-1 space-y-3">
-          {messages.map((message) => {
-            if (message.role === "assistant") assistantIndex++;
-            const badgeMode =
-              message.role === "assistant" ? turnModes[assistantIndex] : undefined;
-            const badgeModel =
-              message.role === "assistant" ? turnModels[assistantIndex] : undefined;
-
-            return (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-[75%] whitespace-pre-wrap rounded-2xl px-4 py-2.5 ${
-                    message.role === "user"
-                      ? "bg-[var(--accent)] text-white"
-                      : "border border-[var(--border)] bg-[var(--panel-alt)]"
-                  }`}
-                >
-                  {(badgeMode || badgeModel) && (
-                    <div className="mb-1 flex gap-1">
-                      {badgeMode && (
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs ${MODE_BADGE_STYLES[badgeMode]}`}
-                        >
-                          {MODES.find((m) => m.key === badgeMode)?.emoji} {badgeMode}
-                        </span>
-                      )}
-                      {badgeModel && (
-                        <span className="inline-block rounded-full bg-[var(--panel-bg)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
-                          {MODELS.find((m) => m.key === badgeModel)?.emoji}{" "}
-                          {badgeModel}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div>
-                    {message.parts.map((part, i) => {
-                      if (part.type === "text") return <span key={i}>{part.text}</span>;
-                      if (part.type === "file" && part.mediaType.startsWith("image/"))
-                        return (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={i}
-                            src={part.url}
-                            alt={part.filename || "Załączony obraz"}
-                            className="mt-2 max-h-48 rounded-lg border border-[var(--border)]"
-                          />
-                        );
-                      return null;
-                    })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="max-w-[75%] rounded-2xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-2.5 text-[var(--text-secondary)]">
-                Myślę...
-              </div>
-            </div>
-          )}
-
-          <div ref={bottomRef} />
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-3">
-        <div className="flex flex-wrap gap-1.5 rounded-xl bg-[var(--panel-alt)] p-1">
-          {MODES.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setMode(m.key)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                mode === m.key
-                  ? "bg-[var(--accent)] text-white shadow-sm"
-                  : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-              }`}
-            >
-              {m.emoji} {m.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-1.5 rounded-xl bg-[var(--panel-alt)] p-1">
-          {MODELS.map((m) => (
-            <button
-              key={m.key}
-              type="button"
-              onClick={() => setModel(m.key)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                model === m.key
-                  ? "bg-[var(--success)] text-[#04241a] shadow-sm"
-                  : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
-              }`}
-            >
-              {m.emoji} {m.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {attachment.error && (
-        <p className="-mt-2 text-xs text-red-400">{attachment.error}</p>
-      )}
-
-      {attachment.image && (
-        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={attachment.image.url}
-            alt="Podgląd załącznika"
-            className="max-h-[120px] rounded-lg border border-[var(--border)]"
-          />
-          <span className="flex-1 text-sm text-[var(--text-secondary)]">
-            📎 Screenshot - zadaj pytanie o ten obraz
-          </span>
-          <button
-            type="button"
-            onClick={attachment.clear}
-            className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {/* Weather card */}
+        {loading ? (
+          <SkeletonCard />
+        ) : (
+          <div
+            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(37,99,235,0.18), rgba(6,182,212,0.10))",
+              backdropFilter: "blur(8px)",
+            }}
           >
-            ✕
-          </button>
-        </div>
-      )}
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-cyan-300">
+              🌤️ Pogoda
+            </p>
+            {(() => {
+              const weather = data?.weather;
+              if (!weather) return null;
+              if ("error" in weather) {
+                return <p className="text-sm text-red-400">{weather.error}</p>;
+              }
+              return (
+                <>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    {weather.city}, {weather.country}
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold text-[var(--foreground)]">
+                    {Math.round(weather.temperature)}°C
+                  </p>
+                  <p className="mt-1 text-sm capitalize text-[var(--text-secondary)]">
+                    {weather.description}
+                  </p>
+                  <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                    💨 {weather.wind} km/h · 💧 {weather.humidity}%
+                  </p>
+                </>
+              );
+            })()}
+            {updatedLabel && (
+              <p className="mt-3 text-xs text-[var(--text-secondary)]">
+                Ostatnia aktualizacja: {updatedLabel}
+              </p>
+            )}
+          </div>
+        )}
 
-      {error && !isLoading && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
-          ⚠️ {error.message}
-        </div>
-      )}
+        {/* Currency card */}
+        {loading ? (
+          <SkeletonCard />
+        ) : (
+          <div
+            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(16,185,129,0.18), rgba(5,150,105,0.10))",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-emerald-300">
+              💶 Kursy walut
+            </p>
+            <div className="flex flex-col gap-1.5">
+              {data?.rates.map((r) =>
+                "error" in r ? (
+                  <p key={r.code} className="text-sm text-red-400">
+                    {r.code}: {r.error}
+                  </p>
+                ) : (
+                  <p key={r.code} className="text-sm text-[var(--foreground)]">
+                    <span className="font-medium">{r.code}:</span> {r.rate.toFixed(4)} PLN
+                  </p>
+                ),
+              )}
+            </div>
+            {data?.rates.some((r) => !("error" in r)) && (
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                Kurs z:{" "}
+                {(() => {
+                  const first = data.rates.find((r) => !("error" in r)) as
+                    | { code: string; rate: number; date: string }
+                    | undefined;
+                  return first?.date;
+                })()}
+              </p>
+            )}
+            {updatedLabel && (
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                Ostatnia aktualizacja: {updatedLabel}
+              </p>
+            )}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={attachment.handleFileInput}
-          className="hidden"
-        />
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+        {/* Holidays card */}
+        {loading ? (
+          <SkeletonCard />
+        ) : (
+          <div
+            className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(249,115,22,0.18), rgba(245,158,11,0.10))",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-amber-300">
+              📅 Nadchodzące święta
+            </p>
+            {(() => {
+              const holidays = data?.holidays;
+              if (!holidays) return null;
+              if (!Array.isArray(holidays)) {
+                return <p className="text-sm text-red-400">{holidays.error}</p>;
+              }
+              if (holidays.length === 0) {
+                return (
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    Brak nadchodzących świąt w tym roku.
+                  </p>
+                );
+              }
+              return (
+                <div className="flex flex-col gap-1.5">
+                  {holidays.map((h) => (
+                    <p key={h.date} className="text-sm text-[var(--foreground)]">
+                      {new Date(h.date + "T00:00:00").toLocaleDateString("pl-PL", {
+                        day: "numeric",
+                        month: "short",
+                      })}{" "}
+                      — {h.name}
+                    </p>
+                  ))}
+                  <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                    Następne za: {daysUntil(holidays[0].date)} dni
+                  </p>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* Quick actions card */}
+        <div
+          className="card-fade-in rounded-2xl border border-[var(--border)] p-5 shadow-sm"
+          style={{
+            background:
+              "linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.10))",
+            backdropFilter: "blur(8px)",
+          }}
         >
-          📎
-        </button>
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onPaste={attachment.handlePaste}
-          placeholder="Napisz wiadomość..."
-          className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
-        />
-        <button
-          type="submit"
-          disabled={isLoading || (!input.trim() && !attachment.image)}
-          className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
-        >
-          Wyślij
-        </button>
-      </form>
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-fuchsia-300">
+            🤖 Szybkie akcje
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {QUICK_ACTIONS.map((action) => (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="rounded-lg border border-[var(--border)] bg-[var(--panel-bg)]/60 px-3 py-2 text-sm text-[var(--foreground)] transition-colors hover:border-[var(--accent)] hover:bg-[var(--panel-alt)]"
+              >
+                {action.emoji} {action.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

@@ -42,3 +42,32 @@ body {
   background: var(--border);
   border-radius: 999px;
 }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card-fade-in {
+  animation: fadeInUp 0.4s ease-out both;
+}
+
+@keyframes skeletonPulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.skeleton {
+  animation: skeletonPulse 1.4s ease-in-out infinite;
+}

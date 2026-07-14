@@ -2,9 +2,16 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, getToolName, isToolUIPart, UIMessage } from "ai";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { markdownComponents } from "../markdown-components";
+import { DiagnosticsPanel } from "../diagnostics-panel";
+import { buildTimeline, downloadImage, summarizeOutput, TOOL_META } from "../tool-ui";
+import { useLiveElapsed } from "../use-live-elapsed";
+
+const MAX_STEPS = 8;
 
 const SCENARIOS = [
   "Planuję weekend w Krakowie. Sprawdź pogodę, znajdź ciekawe miejsca w Wikipedii, i powiedz czy są jakieś święta w ten weekend",
@@ -12,19 +19,6 @@ const SCENARIOS = [
   "Porównaj pogodę w Warszawie, Berlinie i Paryżu. Który z tych miast ma dziś najlepszą pogodę?",
   "Ile dni do następnego święta w Polsce? Jaka będzie wtedy pogoda?",
 ];
-
-const TOOL_META: Record<string, { emoji: string; label: string }> = {
-  calculator: { emoji: "🧮", label: "Kalkulator" },
-  currentDateTime: { emoji: "🕐", label: "Data i czas" },
-  readWebPage: { emoji: "📄", label: "Czytanie stron" },
-  generateImage: { emoji: "🎨", label: "Generowanie obrazów" },
-  getWeather: { emoji: "🌤️", label: "Pogoda" },
-  getExchangeRate: { emoji: "💱", label: "Kurs walut" },
-  getHolidays: { emoji: "📅", label: "Święta" },
-  searchWikipedia: { emoji: "📖", label: "Wikipedia" },
-  saveNote: { emoji: "📝", label: "Zapis notatki" },
-  getNotes: { emoji: "🗒️", label: "Odczyt notatek" },
-};
 
 type SegKind = "thought" | "observation" | "result" | "plain";
 
@@ -119,52 +113,28 @@ function buildReactTimeline(parts: UIMessage["parts"]): ReactStep[] {
   return steps;
 }
 
-function summarizeOutput(output: unknown): string {
-  const text = typeof output === "string" ? output : JSON.stringify(output ?? "");
-  return text.length > 260 ? `${text.slice(0, 260)}…` : text;
-}
-
-function downloadImage(dataUrl: string) {
-  const a = document.createElement("a");
-  a.href = dataUrl;
-  a.download = "ai-generated.png";
-  a.click();
-}
-
-type WithNode<T> = T & { node?: unknown };
-
-const markdownComponents = {
-  h1: ({ node: _node, ...props }: WithNode<React.ComponentProps<"h1">>) => (
-    <h1 className="mb-2 mt-3 text-base font-semibold" {...props} />
-  ),
-  h2: ({ node: _node, ...props }: WithNode<React.ComponentProps<"h2">>) => (
-    <h2 className="mb-2 mt-3 text-sm font-semibold" {...props} />
-  ),
-  h3: ({ node: _node, ...props }: WithNode<React.ComponentProps<"h3">>) => (
-    <h3 className="mb-1 mt-2 text-sm font-semibold" {...props} />
-  ),
-  ul: ({ node: _node, ...props }: WithNode<React.ComponentProps<"ul">>) => (
-    <ul className="my-2 list-disc space-y-1 pl-5" {...props} />
-  ),
-  ol: ({ node: _node, ...props }: WithNode<React.ComponentProps<"ol">>) => (
-    <ol className="my-2 list-decimal space-y-1 pl-5" {...props} />
-  ),
-  p: ({ node: _node, ...props }: WithNode<React.ComponentProps<"p">>) => (
-    <p className="mb-2 last:mb-0" {...props} />
-  ),
-  strong: ({ node: _node, ...props }: WithNode<React.ComponentProps<"strong">>) => (
-    <strong className="font-semibold text-[var(--foreground)]" {...props} />
-  ),
-  code: ({ node: _node, ...props }: WithNode<React.ComponentProps<"code">>) => (
-    <code className="rounded bg-black/20 px-1 py-0.5 text-xs" {...props} />
-  ),
-};
-
 export default function ReactAgent() {
+  return (
+    <Suspense fallback={null}>
+      <ReactAgentInner />
+    </Suspense>
+  );
+}
+
+function ReactAgentInner() {
+  const searchParams = useSearchParams();
+  const [turnDurations, setTurnDurations] = useState<number[]>([]);
+  const turnStartRef = useRef<number | null>(null);
   const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/react" }),
+    onFinish: () => {
+      if (turnStartRef.current !== null) {
+        setTurnDurations((prev) => [...prev, (Date.now() - turnStartRef.current!) / 1000]);
+        turnStartRef.current = null;
+      }
+    },
   });
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(searchParams.get("prompt") ?? "");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isLoading = status === "submitted" || status === "streaming";
@@ -176,6 +146,7 @@ export default function ReactAgent() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+    turnStartRef.current = Date.now();
     sendMessage({ text: input });
     setInput("");
   }
@@ -186,9 +157,12 @@ export default function ReactAgent() {
   const liveStepCount = liveTimeline.filter(
     (s) => s.kind === "text" && s.segKind === "thought",
   ).length;
+  const diagTimeline = lastIsAssistant ? buildTimeline(lastMessage.parts) : [];
+  const liveElapsed = useLiveElapsed(isLoading, turnStartRef);
 
   return (
-    <div className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 flex-col gap-4 overflow-hidden p-6">
+    <div className="mx-auto flex w-full min-h-0 max-w-6xl flex-1 gap-4 overflow-hidden p-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <header className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-2xl">
@@ -409,6 +383,16 @@ export default function ReactAgent() {
           Wyślij
         </button>
       </form>
+    </div>
+
+    <div className="hidden w-72 shrink-0 lg:block">
+      <DiagnosticsPanel
+        timeline={diagTimeline}
+        maxSteps={MAX_STEPS}
+        elapsedSeconds={isLoading ? liveElapsed : (turnDurations[turnDurations.length - 1] ?? null)}
+        status={isLoading ? "loading" : messages.length > 0 ? "done" : "idle"}
+      />
+    </div>
     </div>
   );
 }

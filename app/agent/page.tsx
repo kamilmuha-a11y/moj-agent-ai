@@ -1,9 +1,13 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { getToolName, isToolUIPart, UIMessage } from "ai";
 import { useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { DiagnosticsPanel } from "../diagnostics-panel";
+import { buildTimeline, downloadImage, summarizeOutput, TOOL_META } from "../tool-ui";
+import { useLiveElapsed } from "../use-live-elapsed";
+
+const MAX_STEPS = 8;
 
 const TOOLS_PANEL = [
   { emoji: "🧮", label: "Kalkulator" },
@@ -14,13 +18,6 @@ const TOOLS_PANEL = [
   { emoji: "👁️", label: "Analiza obrazów" },
 ];
 
-const TOOL_META: Record<string, { emoji: string; label: string }> = {
-  calculator: { emoji: "🧮", label: "Kalkulator" },
-  currentDateTime: { emoji: "🕐", label: "Data i czas" },
-  readWebPage: { emoji: "📄", label: "Czytanie stron" },
-  generateImage: { emoji: "🎨", label: "Generowanie obrazów" },
-};
-
 const SCENARIOS = [
   "Znajdź w Google co robi firma Syntelligence i wygeneruj dla nich logo",
   "Przeczytaj stronę apple.com i opisz ich aktualną ofertę iPhone",
@@ -28,57 +25,6 @@ const SCENARIOS = [
   "Jakie są najnowsze wiadomości o AI? Wygeneruj grafikę do posta o tym",
   "Wyszukaj w Google 'best coffee shops Kraków' i streszcz wyniki",
 ];
-
-type TimelineStep =
-  | {
-      kind: "tool";
-      toolName: string;
-      state: string;
-      output: unknown;
-    }
-  | {
-      kind: "search";
-      sources: { sourceId: string; url: string; title?: string }[];
-    };
-
-function buildTimeline(parts: UIMessage["parts"]): TimelineStep[] {
-  const steps: TimelineStep[] = [];
-  let sourcesAdded = false;
-  for (const part of parts) {
-    if (isToolUIPart(part)) {
-      steps.push({
-        kind: "tool",
-        toolName: getToolName(part),
-        state: part.state,
-        output: "output" in part ? part.output : undefined,
-      });
-    } else if (part.type === "source-url" && !sourcesAdded) {
-      sourcesAdded = true;
-      steps.push({
-        kind: "search",
-        sources: parts.filter((p) => p.type === "source-url") as {
-          sourceId: string;
-          url: string;
-          title?: string;
-        }[],
-      });
-    }
-  }
-  return steps;
-}
-
-function summarizeOutput(output: unknown): string {
-  const text =
-    typeof output === "string" ? output : JSON.stringify(output ?? "");
-  return text.length > 220 ? `${text.slice(0, 220)}…` : text;
-}
-
-function downloadImage(dataUrl: string) {
-  const a = document.createElement("a");
-  a.href = dataUrl;
-  a.download = "ai-generated.png";
-  a.click();
-}
 
 export default function Agent() {
   const [turnDurations, setTurnDurations] = useState<number[]>([]);
@@ -131,9 +77,14 @@ export default function Agent() {
   }
 
   let assistantIndex = -1;
+  const lastMessage = messages[messages.length - 1];
+  const diagTimeline =
+    lastMessage?.role === "assistant" ? buildTimeline(lastMessage.parts) : [];
+  const liveElapsed = useLiveElapsed(isLoading, turnStartRef);
 
   return (
-    <div className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 flex-col gap-4 overflow-hidden p-6">
+    <div className="mx-auto flex w-full min-h-0 max-w-6xl flex-1 gap-4 overflow-hidden p-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       <header className="flex items-center justify-between rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] px-6 py-5 shadow-sm">
         <div className="flex items-center gap-3">
           <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--accent-soft)] text-2xl">
@@ -417,6 +368,16 @@ export default function Agent() {
           Wyślij
         </button>
       </form>
+    </div>
+
+    <div className="hidden w-72 shrink-0 lg:block">
+      <DiagnosticsPanel
+        timeline={diagTimeline}
+        maxSteps={MAX_STEPS}
+        elapsedSeconds={isLoading ? liveElapsed : (turnDurations[turnDurations.length - 1] ?? null)}
+        status={isLoading ? "loading" : messages.length > 0 ? "done" : "idle"}
+      />
+    </div>
     </div>
   );
 }
