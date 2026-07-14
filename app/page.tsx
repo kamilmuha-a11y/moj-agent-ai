@@ -2,6 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { useEffect, useRef, useState } from "react";
+import { useImageAttachment } from "./useImageAttachment";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
 type ModelKey = "flash" | "pro";
@@ -31,7 +32,7 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 export default function Home() {
-  const { messages, sendMessage, setMessages, status } = useChat();
+  const { messages, sendMessage, setMessages, status, error } = useChat();
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<Mode>("casual");
   const [turnModes, setTurnModes] = useState<Mode[]>([]);
@@ -40,6 +41,8 @@ export default function Home() {
   const [contextOpen, setContextOpen] = useState(true);
   const [copied, setCopied] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachment = useImageAttachment();
 
   const isLoading = status === "submitted" || status === "streaming";
 
@@ -61,11 +64,20 @@ export default function Home() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !attachment.image) || isLoading) return;
     setTurnModes((prev) => [...prev, mode]);
     setTurnModels((prev) => [...prev, model]);
-    sendMessage({ text: input }, { body: { mode, model } });
+    sendMessage(
+      {
+        text: input,
+        files: attachment.image
+          ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
+          : undefined,
+      },
+      { body: { mode, model } },
+    );
     setInput("");
+    attachment.clear();
   }
 
   function handleNewConversation() {
@@ -172,7 +184,17 @@ export default function Home() {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
+      <div
+        onDragOver={attachment.handleDragOver}
+        onDragLeave={attachment.handleDragLeave}
+        onDrop={attachment.handleDrop}
+        className="relative flex flex-1 flex-col overflow-y-auto rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-4"
+      >
+        {attachment.isDragging && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-[var(--accent)] bg-[var(--accent-soft)] text-sm font-medium text-[var(--accent)]">
+            Upuść obraz
+          </div>
+        )}
         <div className="flex-1 space-y-3">
           {messages.map((message) => {
             if (message.role === "assistant") assistantIndex++;
@@ -213,9 +235,20 @@ export default function Home() {
                     </div>
                   )}
                   <div>
-                    {message.parts.map((part, i) =>
-                      part.type === "text" ? <span key={i}>{part.text}</span> : null,
-                    )}
+                    {message.parts.map((part, i) => {
+                      if (part.type === "text") return <span key={i}>{part.text}</span>;
+                      if (part.type === "file" && part.mediaType.startsWith("image/"))
+                        return (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={i}
+                            src={part.url}
+                            alt={part.filename || "Załączony obraz"}
+                            className="mt-2 max-h-48 rounded-lg border border-[var(--border)]"
+                          />
+                        );
+                      return null;
+                    })}
                   </div>
                 </div>
               </div>
@@ -269,16 +302,62 @@ export default function Home() {
         </div>
       </div>
 
+      {attachment.error && (
+        <p className="-mt-2 text-xs text-red-400">{attachment.error}</p>
+      )}
+
+      {attachment.image && (
+        <div className="flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--panel-bg)] p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={attachment.image.url}
+            alt="Podgląd załącznika"
+            className="max-h-[120px] rounded-lg border border-[var(--border)]"
+          />
+          <span className="flex-1 text-sm text-[var(--text-secondary)]">
+            📎 Screenshot - zadaj pytanie o ten obraz
+          </span>
+          <button
+            type="button"
+            onClick={attachment.clear}
+            className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {error && !isLoading && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          ⚠️ {error.message}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="flex gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={attachment.handleFileInput}
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+        >
+          📎
+        </button>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onPaste={attachment.handlePaste}
           placeholder="Napisz wiadomość..."
           className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] px-4 py-3 text-[var(--foreground)] outline-none transition-colors focus:border-[var(--accent)]"
         />
         <button
           type="submit"
-          disabled={isLoading || !input.trim()}
+          disabled={isLoading || (!input.trim() && !attachment.image)}
           className="rounded-xl bg-[var(--accent)] px-5 py-3 font-medium text-white transition-colors hover:bg-[var(--accent-strong)] disabled:opacity-40"
         >
           Wyślij

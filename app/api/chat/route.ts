@@ -1,5 +1,7 @@
 import { google } from "@ai-sdk/google";
-import { convertToModelMessages, streamText, UIMessage } from "ai";
+import { convertToModelMessages, stepCountIs, streamText, UIMessage } from "ai";
+import { calculator, currentDateTime, generateImage, readWebPage } from "../tools";
+import { friendlyStreamError } from "../stream-error";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
 type ModelKey = "flash" | "pro";
@@ -71,7 +73,18 @@ export async function POST(req: Request) {
     model: google(MODEL_MAP[model ?? "flash"] ?? MODEL_MAP.flash),
     system: SYSTEM_PROMPTS[mode ?? "casual"] ?? SYSTEM_PROMPTS.casual,
     messages: await convertToModelMessages(messages),
+    tools: {
+      google_search: google.tools.googleSearch({}),
+      readWebPage,
+      calculator,
+      currentDateTime,
+      generateImage,
+    },
+    stopWhen: stepCountIs(8),
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({
+    sendSources: true,
+    onError: friendlyStreamError,
+  });
 }

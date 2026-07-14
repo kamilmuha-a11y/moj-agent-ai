@@ -1,5 +1,6 @@
 import { google } from "@ai-sdk/google";
 import { convertToModelMessages, streamText, UIMessage } from "ai";
+import { friendlyStreamError } from "../stream-error";
 
 const SYSTEM_PROMPT = `Jesteś asystentem który odpowiada w DOKŁADNIE takim formacie jak w przykładach poniżej.
 
@@ -39,5 +40,5 @@ export async function POST(req: Request) {
     messages: await convertToModelMessages(messages),
   });
 
-  return result.toUIMessageStreamResponse();
+  return result.toUIMessageStreamResponse({ onError: friendlyStreamError });
 }

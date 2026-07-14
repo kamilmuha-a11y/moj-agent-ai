@@ -4,10 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Chat", icon: "🤖" },
+  { href: "/agent", label: "Agent", icon: "🤖", highlight: true },
+  { href: "/react", label: "ReAct", icon: "🔄" },
+  { href: "/", label: "Chat", icon: "💬" },
   { href: "/think", label: "Myślenie", icon: "🧠" },
   { href: "/fewshot", label: "Słownik", icon: "📚" },
   { href: "/format", label: "Formater", icon: "📐" },
+  { href: "/search", label: "Szukaj", icon: "🌐" },
+  { href: "/generate", label: "Grafiki", icon: "🎨" },
+  { href: "/vision", label: "Vision", icon: "👁️" },
 ];
 
 export function SidebarNav() {
@@ -34,16 +39,20 @@ export function SidebarNav() {
           Workspace
         </div>
         <nav className="flex flex-col gap-1">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.map((item, i) => {
             const active = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  i === 0 ? "mb-2 border border-[var(--success)]/30" : ""
+                } ${
                   active
                     ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                    : "text-[var(--text-secondary)] hover:bg-[var(--panel-bg)] hover:text-[var(--foreground)]"
+                    : item.highlight
+                      ? "bg-[var(--success)]/10 text-[var(--success)] hover:bg-[var(--success)]/15"
+                      : "text-[var(--text-secondary)] hover:bg-[var(--panel-bg)] hover:text-[var(--foreground)]"
                 }`}
               >
                 <span className="text-base">{item.icon}</span>
@@ -72,7 +81,9 @@ export function SidebarNav() {
               className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors ${
                 active
                   ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                  : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
+                  : item.highlight
+                    ? "bg-[var(--success)]/10 text-[var(--success)]"
+                    : "text-[var(--text-secondary)] hover:text-[var(--foreground)]"
               }`}
             >
               <span>{item.icon}</span>

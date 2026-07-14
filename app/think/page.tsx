@@ -5,7 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
 
 export default function Think() {
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/think" }),
   });
   const [input, setInput] = useState("");
@@ -80,6 +80,12 @@ export default function Think() {
           <div ref={bottomRef} />
         </div>
       </div>
+
+      {error && !isLoading && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          ⚠️ {error.message}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input

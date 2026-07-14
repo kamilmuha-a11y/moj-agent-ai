@@ -64,7 +64,7 @@ const markdownComponents = {
 };
 
 export default function Format() {
-  const { messages, sendMessage, status } = useChat({
+  const { messages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({ api: "/api/format" }),
   });
   const [input, setInput] = useState("");
@@ -170,6 +170,12 @@ export default function Format() {
           <div ref={bottomRef} />
         </div>
       </div>
+
+      {error && !isLoading && (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm text-red-400">
+          ⚠️ {error.message}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="flex gap-2">
         <input
