@@ -27,8 +27,9 @@ export default function Travel() {
     transport: new DefaultChatTransport({ api: "/api/travel" }),
     onFinish: () => {
       if (turnStartRef.current !== null) {
-        setTurnDurations((prev) => [...prev, (Date.now() - turnStartRef.current!) / 1000]);
+        const duration = (Date.now() - turnStartRef.current) / 1000;
         turnStartRef.current = null;
+        setTurnDurations((prev) => [...prev, duration]);
       }
     },
   });

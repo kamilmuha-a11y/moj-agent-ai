@@ -32,11 +32,9 @@ export default function Agent() {
   const { messages, sendMessage, status, error } = useChat({
     onFinish: () => {
       if (turnStartRef.current !== null) {
-        setTurnDurations((prev) => [
-          ...prev,
-          (Date.now() - turnStartRef.current!) / 1000,
-        ]);
+        const duration = (Date.now() - turnStartRef.current) / 1000;
         turnStartRef.current = null;
+        setTurnDurations((prev) => [...prev, duration]);
       }
     },
   });
