@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { href: "/react", label: "ReAct" },
   { href: "/travel", label: "Podróże" },
   { href: "/chat", label: "Chat" },
+  { href: "/history", label: "Historia" },
   { href: "/think", label: "Myślenie" },
   { href: "/fewshot", label: "Słownik" },
   { href: "/format", label: "Formater" },

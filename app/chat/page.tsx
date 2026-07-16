@@ -2,7 +2,8 @@
 
 import { useChat } from "@ai-sdk/react";
 import { getToolName, isToolUIPart } from "ai";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
 import { supabase } from "../../lib/supabase";
 
@@ -39,6 +40,16 @@ function truncateTitle(text: string) {
 }
 
 export default function Chat() {
+  return (
+    <Suspense fallback={null}>
+      <ChatInner />
+    </Suspense>
+  );
+}
+
+function ChatInner() {
+  const searchParams = useSearchParams();
+  const requestedConversationId = searchParams.get("conversationId");
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -89,12 +100,24 @@ export default function Chat() {
 
   useEffect(() => {
     (async () => {
-      const { data: conversation } = await supabase
-        .from("conversations")
-        .select("id, title, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      let conversation = null;
+      if (requestedConversationId) {
+        const { data } = await supabase
+          .from("conversations")
+          .select("id, title, updated_at")
+          .eq("id", requestedConversationId)
+          .maybeSingle();
+        conversation = data;
+      }
+      if (!conversation) {
+        const { data } = await supabase
+          .from("conversations")
+          .select("id, title, updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        conversation = data;
+      }
 
       if (conversation) {
         conversationIdRef.current = conversation.id;
@@ -117,7 +140,7 @@ export default function Chat() {
 
       setHistoryLoading(false);
     })();
-  }, [setMessages]);
+  }, [setMessages, requestedConversationId]);
 
   useEffect(() => {
     (async () => {
