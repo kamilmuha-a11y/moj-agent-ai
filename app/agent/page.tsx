@@ -285,7 +285,7 @@ export default function Agent() {
                   {message.role === "assistant" && duration !== undefined && (
                     <p className="mt-2 text-xs text-[var(--text-secondary)]">
                       Użyto {toolCount} narzędzi | {duration.toFixed(1)}s |
-                      Model: gemini-3.5-flash
+                      Model: gemini-3.1-flash-lite
                     </p>
                   )}
                 </div>

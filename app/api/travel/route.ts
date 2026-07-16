@@ -12,6 +12,15 @@ import {
 import { friendlyStreamError } from "../stream-error";
 import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
 
+if (process.env.ENABLE_SEARCH_GROUNDING === "true") {
+  console.warn(
+    "⚠️ UWAGA: Search Grounding jest WŁĄCZONY. " +
+      "To jest najdroższa funkcja API ($14/1000 zapytań). " +
+      "Używaj TYLKO do testów. Wyłącz po testach usuwając ENABLE_SEARCH_GROUNDING z .env.local, " +
+      "bo inni uczestnicy kursu mają wtedy ograniczony dostęp do modeli.",
+  );
+}
+
 const SYSTEM_PROMPT = `Jesteś profesjonalnym asystentem podróży. Gdy użytkownik opisuje planowaną podróż, AUTONOMICZNIE zbierasz wszystkie potrzebne informacje.
 
 ## TWÓJ PROCES:
@@ -62,7 +71,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
-    model: google("gemini-3.5-flash"),
+    model: google("gemini-3.1-flash-lite"),
     system: SYSTEM_PROMPT,
     messages: await convertToModelMessages(messages),
     tools: {
@@ -73,7 +82,9 @@ export async function POST(req: Request) {
       calculator,
       currentDateTime,
       readWebPage,
-      google_search: google.tools.googleSearch({}),
+      ...(process.env.ENABLE_SEARCH_GROUNDING === "true"
+        ? { google_search: google.tools.googleSearch({}) }
+        : {}),
     },
     stopWhen: stepCountIs(10),
   });
