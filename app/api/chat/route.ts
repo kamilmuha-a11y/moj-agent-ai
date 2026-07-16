@@ -1,6 +1,12 @@
 import { google } from "@ai-sdk/google";
 import { convertToModelMessages, stepCountIs, streamText, UIMessage } from "ai";
-import { calculator, currentDateTime, generateImage, readWebPage } from "../tools";
+import {
+  calculator,
+  createUserProfileTools,
+  currentDateTime,
+  generateImage,
+  readWebPage,
+} from "../tools";
 import { friendlyStreamError } from "../stream-error";
 import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
 
@@ -64,17 +70,47 @@ Odpowiadam w sposób kreatywny i nieszablonowy. Używam metafor, analogii i stor
 Język: polski, swobodny ale rzeczowy.`,
 };
 
+function buildPersonalizationPrompt(
+  userName?: string | null,
+  userPreferences?: Record<string, string>,
+): string {
+  if (userName) {
+    const prefsList = userPreferences && Object.keys(userPreferences).length > 0
+      ? Object.entries(userPreferences)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(", ")
+      : null;
+    return `\n\n## UŻYTKOWNIK\nUżytkownik ma na imię ${userName}. Zwracaj się do niego po imieniu. Bądź ciepły i personalny — to Twój stały użytkownik.${
+      prefsList ? `\nZnane preferencje użytkownika: ${prefsList}. Wykorzystuj je w rozmowie, gdy to pasuje.` : ""
+    }\nGdy użytkownik wspomni o swoich upodobaniach (np. "lubię X", "mieszkam w Y") — zapisz to narzędziem saveUserPreference.`;
+  }
+  return `\n\n## UŻYTKOWNIK\nTo nowy użytkownik, nie znasz jeszcze jego imienia. Na początku tej rozmowy krótko się przedstaw i zapytaj jak ma na imię. Gdy poda imię — zapisz je narzędziem saveUserName.`;
+}
+
 export async function POST(req: Request) {
   const {
     messages,
     mode,
     model,
-  }: { messages: UIMessage[]; mode?: Mode; model?: ModelKey } =
-    await req.json();
+    userId,
+    userName,
+    userPreferences,
+  }: {
+    messages: UIMessage[];
+    mode?: Mode;
+    model?: ModelKey;
+    userId?: string;
+    userName?: string | null;
+    userPreferences?: Record<string, string>;
+  } = await req.json();
+
+  const system =
+    (SYSTEM_PROMPTS[mode ?? "casual"] ?? SYSTEM_PROMPTS.casual) +
+    (userId ? buildPersonalizationPrompt(userName, userPreferences) : "");
 
   const result = streamText({
     model: google(MODEL_MAP[model ?? "flash"] ?? MODEL_MAP.flash),
-    system: SYSTEM_PROMPTS[mode ?? "casual"] ?? SYSTEM_PROMPTS.casual,
+    system,
     messages: await convertToModelMessages(messages),
     tools: {
       google_search: google.tools.googleSearch({}),
@@ -82,6 +118,7 @@ export async function POST(req: Request) {
       calculator,
       currentDateTime,
       generateImage,
+      ...(userId ? createUserProfileTools(userId) : {}),
     },
     stopWhen: stepCountIs(8),
   });

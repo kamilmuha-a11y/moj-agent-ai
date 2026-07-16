@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { tool } from "ai";
 import { z } from "zod";
+import { supabase } from "../../lib/supabase";
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -300,3 +301,47 @@ export const getNotes = tool({
     return notesStore.map((n, i) => `${i + 1}. ${n.text} (${n.createdAt})`).join("\n");
   },
 });
+
+export function createUserProfileTools(userId: string) {
+  const saveUserName = tool({
+    description:
+      "Zapisuje imię użytkownika w jego profilu. Wywołaj gdy użytkownik po raz pierwszy poda swoje imię.",
+    inputSchema: z.object({
+      name: z.string().describe("Imię użytkownika, np. 'Paweł'"),
+    }),
+    execute: async ({ name }) => {
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({ name })
+        .eq("id", userId);
+      if (error) return { success: false, message: "Nie udało się zapisać imienia." };
+      return { success: true, name };
+    },
+  });
+
+  const saveUserPreference = tool({
+    description:
+      "Zapisuje preferencję użytkownika (np. ulubione jedzenie, miasto zamieszkania) do jego profilu.",
+    inputSchema: z.object({
+      key: z.string().describe("Klucz preferencji, np. 'ulubione_jedzenie'"),
+      value: z.string().describe("Wartość preferencji, np. 'pizza'"),
+    }),
+    execute: async ({ key, value }) => {
+      const { data, error: fetchError } = await supabase
+        .from("user_profiles")
+        .select("preferences")
+        .eq("id", userId)
+        .single();
+      if (fetchError) return { success: false, message: "Nie udało się odczytać profilu." };
+      const preferences = { ...((data?.preferences as Record<string, string>) ?? {}), [key]: value };
+      const { error } = await supabase
+        .from("user_profiles")
+        .update({ preferences })
+        .eq("id", userId);
+      if (error) return { success: false, message: "Nie udało się zapisać preferencji." };
+      return { success: true, key, value };
+    },
+  });
+
+  return { saveUserName, saveUserPreference };
+}

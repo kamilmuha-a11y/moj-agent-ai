@@ -1,8 +1,10 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { getToolName, isToolUIPart } from "ai";
 import { useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { supabase } from "../../lib/supabase";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
 type ModelKey = "flash" | "pro";
@@ -31,8 +33,47 @@ const EXAMPLE_QUESTIONS = [
   "Jak wygląda proces odprawy celnej krok po kroku?",
 ];
 
+function truncateTitle(text: string) {
+  const trimmed = text.trim();
+  return trimmed.length > 50 ? `${trimmed.slice(0, 50)}...` : trimmed;
+}
+
 export default function Chat() {
-  const { messages, sendMessage, setMessages, status, error } = useChat();
+  const conversationIdRef = useRef<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
+  const [userPreferences, setUserPreferences] = useState<Record<string, string>>({});
+  const greetedRef = useRef(false);
+  const { messages, sendMessage, setMessages, status, error } = useChat({
+    onFinish: ({ message }) => {
+      const text = message.parts
+        .filter((p) => p.type === "text")
+        .map((p) => p.text)
+        .join("");
+      if (text) {
+        persistAssistantMessage(text).catch((err) =>
+          console.error("Nie udało się zapisać odpowiedzi agenta:", err),
+        );
+      }
+
+      for (const part of message.parts) {
+        if (!isToolUIPart(part) || part.state !== "output-available") continue;
+        const toolName = getToolName(part);
+        if (toolName === "saveUserName") {
+          const output = part.output as { success: boolean; name?: string };
+          if (output.success && output.name) setUserName(output.name);
+        }
+        if (toolName === "saveUserPreference") {
+          const output = part.output as { success: boolean; key?: string; value?: string };
+          if (output.success && output.key && output.value) {
+            setUserPreferences((prev) => ({ ...prev, [output.key!]: output.value! }));
+          }
+        }
+      }
+    },
+  });
   const [input, setInput] = useState("");
   const [mode, setMode] = useState<Mode>("casual");
   const [turnModes, setTurnModes] = useState<Mode[]>([]);
@@ -45,6 +86,112 @@ export default function Chat() {
   const attachment = useImageAttachment();
 
   const isLoading = status === "submitted" || status === "streaming";
+
+  useEffect(() => {
+    (async () => {
+      const { data: conversation } = await supabase
+        .from("conversations")
+        .select("id, title, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (conversation) {
+        conversationIdRef.current = conversation.id;
+        const { data: messageRows } = await supabase
+          .from("messages")
+          .select("id, role, content")
+          .eq("conversation_id", conversation.id)
+          .order("created_at", { ascending: true });
+
+        if (messageRows && messageRows.length > 0) {
+          setMessages(
+            messageRows.map((row) => ({
+              id: row.id,
+              role: row.role as "user" | "assistant",
+              parts: [{ type: "text" as const, text: row.content }],
+            })),
+          );
+        }
+      }
+
+      setHistoryLoading(false);
+    })();
+  }, [setMessages]);
+
+  useEffect(() => {
+    (async () => {
+      let id = localStorage.getItem("user_id");
+      if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem("user_id", id);
+      }
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("name, preferences")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (profile) {
+        setUserName(profile.name ?? null);
+        setUserPreferences((profile.preferences as Record<string, string>) ?? {});
+      } else {
+        await supabase.from("user_profiles").insert({ id });
+      }
+
+      setUserId(id);
+      setProfileLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (historyLoading || profileLoading || greetedRef.current) return;
+    greetedRef.current = true;
+    if (messages.length === 0) {
+      const greeting = userName
+        ? `Cześć, ${userName}! Miło Cię znowu widzieć! 🎉`
+        : "Cześć! Nie znamy się jeszcze. Jak masz na imię?";
+      setMessages([
+        { id: "greeting", role: "assistant", parts: [{ type: "text" as const, text: greeting }] },
+      ]);
+    }
+  }, [historyLoading, profileLoading, messages.length, userName, setMessages]);
+
+  async function ensureConversationId(firstMessageText: string): Promise<string> {
+    if (conversationIdRef.current) return conversationIdRef.current;
+    const { data, error } = await supabase
+      .from("conversations")
+      .insert({ title: truncateTitle(firstMessageText) })
+      .select()
+      .single();
+    if (error || !data) throw error ?? new Error("Nie udało się utworzyć rozmowy");
+    conversationIdRef.current = data.id;
+    return data.id;
+  }
+
+  async function persistUserMessage(text: string) {
+    const conversationId = await ensureConversationId(text);
+    await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, role: "user", content: text });
+    await supabase
+      .from("conversations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", conversationId);
+  }
+
+  async function persistAssistantMessage(text: string) {
+    const conversationId = conversationIdRef.current;
+    if (!conversationId) return;
+    await supabase
+      .from("messages")
+      .insert({ conversation_id: conversationId, role: "assistant", content: text });
+    await supabase
+      .from("conversations")
+      .update({ updated_at: new Date().toISOString() })
+      .eq("id", conversationId);
+  }
 
   const approxTokens = Math.round(
     messages.reduce(
@@ -65,6 +212,7 @@ export default function Chat() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if ((!input.trim() && !attachment.image) || isLoading) return;
+    const text = input;
     setTurnModes((prev) => [...prev, mode]);
     setTurnModels((prev) => [...prev, model]);
     sendMessage(
@@ -74,16 +222,23 @@ export default function Chat() {
           ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
           : undefined,
       },
-      { body: { mode, model } },
+      { body: { mode, model, userId, userName, userPreferences } },
     );
     setInput("");
     attachment.clear();
+    if (text.trim()) {
+      persistUserMessage(text).catch((err) =>
+        console.error("Nie udało się zapisać wiadomości:", err),
+      );
+    }
   }
 
   function handleNewConversation() {
     setMessages([]);
     setTurnModes([]);
     setTurnModels([]);
+    conversationIdRef.current = null;
+    greetedRef.current = false;
   }
 
   async function handleExport() {
@@ -196,7 +351,12 @@ export default function Chat() {
           </div>
         )}
         <div className="flex-1 space-y-3">
-          {messages.map((message) => {
+          {historyLoading && (
+            <div className="flex items-center justify-center py-8 text-sm text-[var(--text-secondary)]">
+              ⏳ Wczytywanie rozmowy...
+            </div>
+          )}
+          {!historyLoading && messages.map((message) => {
             if (message.role === "assistant") assistantIndex++;
             const badgeMode =
               message.role === "assistant" ? turnModes[assistantIndex] : undefined;
