@@ -1,8 +1,9 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
   "Jakie są najnowsze wiadomości o sztucznej inteligencji?",
@@ -107,7 +108,22 @@ export default function Search() {
                 >
                   <div>
                     {message.parts.map((part, i) => {
-                      if (part.type === "text") return <span key={i}>{part.text}</span>;
+                      if (part.type === "text") {
+                        const { body, label, citation } = splitCitation(part.text);
+                        return (
+                          <Fragment key={i}>
+                            <span>{body}</span>
+                            {citation && (
+                              <div className="mt-2 flex items-center gap-1.5 border-t border-[var(--border)] pt-2 text-xs text-[var(--text-secondary)]">
+                                <span>📎</span>
+                                <span>
+                                  {label}: {citation}
+                                </span>
+                              </div>
+                            )}
+                          </Fragment>
+                        );
+                      }
                       if (part.type === "file" && part.mediaType.startsWith("image/"))
                         return (
                           // eslint-disable-next-line @next/next/no-img-element

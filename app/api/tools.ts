@@ -273,6 +273,68 @@ export const searchWikipedia = tool({
   },
 });
 
+export const searchKnowledge = tool({
+  description:
+    "Wyszukuje informacje w bazie wiedzy firmy (cenniki, FAQ, regulaminy, oferty). " +
+    "Używaj ZAWSZE gdy użytkownik pyta o: ceny, pakiety, koszty; procedury, regulaminy, warunki; " +
+    "FAQ, pytania o firmę/usługi; cokolwiek co może być w dokumentach firmowych.",
+  inputSchema: z.object({
+    query: z.string().describe("Pytanie użytkownika, np. 'ile kosztuje pakiet premium'"),
+  }),
+  execute: async ({ query }) => {
+    if (!query.trim()) return { results: [], total_found: 0, message: "Podaj czego mam szukać." };
+
+    try {
+      const embedResponse = await genAI.models.embedContent({
+        model: "gemini-embedding-001",
+        contents: query,
+        config: { outputDimensionality: 768 },
+      });
+      const values = embedResponse.embeddings?.[0]?.values;
+
+      if (!values) {
+        return { results: [], total_found: 0, message: "Nie udało się przetworzyć zapytania." };
+      }
+
+      const { data, error } = await supabase.rpc("match_documents", {
+        query_embedding: values,
+        match_threshold: 0.5,
+        match_count: 5,
+      });
+
+      if (error) {
+        return { results: [], total_found: 0, message: "Błąd wyszukiwania w bazie wiedzy." };
+      }
+
+      const results = (data ?? []).map(
+        (row: {
+          title: string;
+          content: string;
+          similarity: number;
+          metadata?: { source?: string; chunk_index?: number; total_chunks?: number };
+          created_at?: string;
+        }) => ({
+          title: row.title,
+          content: row.content,
+          similarity: row.similarity,
+          metadata: row.metadata,
+          added_at: row.created_at,
+        }),
+      );
+
+      if (results.length === 0) {
+        return { results: [], total_found: 0, message: "Nie znaleziono informacji w bazie wiedzy." };
+      }
+
+      const source_documents = Array.from(new Set(results.map((r: { title: string }) => r.title)));
+
+      return { results, total_found: results.length, source_documents };
+    } catch {
+      return { results: [], total_found: 0, message: "Błąd wyszukiwania w bazie wiedzy." };
+    }
+  },
+});
+
 type Note = { id: string; text: string; createdAt: string };
 // In-memory only — resets on server restart, shared across all sessions (no DB in this project).
 const notesStore: Note[] = [];

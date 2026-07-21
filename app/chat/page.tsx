@@ -3,9 +3,10 @@
 import { useChat } from "@ai-sdk/react";
 import { getToolName, isToolUIPart } from "ai";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
 import { supabase } from "../../lib/supabase";
+import { splitCitation } from "../tool-ui";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
 type ModelKey = "flash" | "pro";
@@ -419,7 +420,22 @@ function ChatInner() {
                   )}
                   <div>
                     {message.parts.map((part, i) => {
-                      if (part.type === "text") return <span key={i}>{part.text}</span>;
+                      if (part.type === "text") {
+                        const { body, label, citation } = splitCitation(part.text);
+                        return (
+                          <Fragment key={i}>
+                            <span>{body}</span>
+                            {citation && (
+                              <div className="mt-2 flex items-center gap-1.5 border-t border-[var(--border)] pt-2 text-xs text-[var(--text-secondary)]">
+                                <span>📎</span>
+                                <span>
+                                  {label}: {citation}
+                                </span>
+                              </div>
+                            )}
+                          </Fragment>
+                        );
+                      }
                       if (part.type === "file" && part.mediaType.startsWith("image/"))
                         return (
                           // eslint-disable-next-line @next/next/no-img-element

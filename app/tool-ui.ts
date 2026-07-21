@@ -11,6 +11,7 @@ export const TOOL_META: Record<string, { emoji: string; label: string }> = {
   searchWikipedia: { emoji: "📖", label: "Wikipedia" },
   saveNote: { emoji: "📝", label: "Zapis notatki" },
   getNotes: { emoji: "🗒️", label: "Odczyt notatek" },
+  searchKnowledge: { emoji: "📚", label: "Baza wiedzy" },
 };
 
 export type TimelineStep =
@@ -41,6 +42,14 @@ export function buildTimeline(parts: UIMessage["parts"]): TimelineStep[] {
     }
   }
   return steps;
+}
+
+const CITATION_REGEX = /\n*📎 (Źródło|Źródła):\s*(.+?)\s*$/;
+
+export function splitCitation(text: string): { body: string; label: string; citation: string } | { body: string; label: null; citation: null } {
+  const match = text.match(CITATION_REGEX);
+  if (!match) return { body: text, label: null, citation: null };
+  return { body: text.slice(0, match.index).trimEnd(), label: match[1], citation: match[2] };
 }
 
 export function summarizeOutput(output: unknown, maxLen = 220): string {

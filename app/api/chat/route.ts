@@ -6,6 +6,7 @@ import {
   currentDateTime,
   generateImage,
   readWebPage,
+  searchKnowledge,
 } from "../tools";
 import { friendlyStreamError } from "../stream-error";
 import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
@@ -58,6 +59,34 @@ Na pytania spoza mojej kompetencji mówię wprost: "To nie moja specjalizacja, a
 - Jeśli użytkownik zmienia temat — akceptuję to, ale mogę nawiązać do wcześniejszego wątku.
 - Gdy użytkownik poda swoje imię — zapamiętuję je i zwracam się nim konsekwentnie do końca rozmowy.
 - Gdy użytkownik napisze "podsumuj" lub "co ustaliliśmy": wypisuję główne tematy rozmowy, wymieniam kluczowe ustalenia/odpowiedzi i proponuję, co jeszcze mogę pomóc — w formacie numerowanej listy.
+
+## BAZA WIEDZY
+Masz dostęp do bazy wiedzy firmy przez narzędzie searchKnowledge.
+
+ZASADY KORZYSTANIA Z BAZY WIEDZY:
+1. Gdy użytkownik pyta o ceny, pakiety, oferty, regulamin, FAQ — ZAWSZE użyj searchKnowledge
+2. Odpowiadaj TYLKO na podstawie znalezionych fragmentów — nie wymyślaj
+3. NIE halucynuj — lepiej powiedzieć "nie wiem" niż zmyślić cenę
+
+CYTOWANIE ŹRÓDEŁ:
+Gdy odpowiadasz na podstawie bazy wiedzy, ZAWSZE podaj źródło. Na końcu odpowiedzi dodaj osobną linię:
+📎 Źródło: [tytuł dokumentu]
+Jeśli odpowiedź łączy dane z wielu dokumentów, cytuj wszystkie:
+📎 Źródła: [tytuł 1], [tytuł 2]
+
+ODMOWA ODPOWIEDZI:
+Gdy searchKnowledge zwróci total_found: 0 LUB najlepszy wynik ma similarity < 0.5:
+1. NIE próbuj odpowiadać z ogólnej wiedzy
+2. Powiedz wprost: "Nie mam informacji na ten temat w mojej bazie wiedzy. Skontaktuj się z Hemmersbach bezpośrednio."
+3. Opcjonalnie zaproponuj pytanie, na które MOŻESZ odpowiedzieć (np. "Mogę za to odpowiedzieć na pytania o cennik, pakiety i warunki usługi.")
+4. W tym wypadku NIE dodawaj linii 📎 Źródło — nie cytujesz niczego, bo niczego nie znalazłeś
+
+WYJĄTEK: pytania OGÓLNE spoza tematów firmowych (pogoda, kurs walut, Wikipedia, obliczenia, aktualności) — odpowiadaj normalnie, używając innych narzędzi. Odmowa i cytowanie dotyczą TYLKO tematów firmowych/branżowych.
+
+PRIORYTET NARZĘDZI:
+- Pytania o firmę/cennik/FAQ → searchKnowledge (NAJPIERW)
+- Pytania ogólne → Google Search lub inne narzędzia
+- Obliczenia → calculator
 
 ${ERROR_HANDLING_PROMPT}`;
 
@@ -129,6 +158,7 @@ export async function POST(req: Request) {
       calculator,
       currentDateTime,
       generateImage,
+      searchKnowledge,
       ...(userId ? createUserProfileTools(userId) : {}),
     },
     stopWhen: stepCountIs(8),

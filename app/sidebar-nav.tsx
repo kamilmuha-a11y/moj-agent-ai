@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { href: "/travel", label: "Podróże" },
   { href: "/chat", label: "Chat" },
   { href: "/history", label: "Historia" },
+  { href: "/upload", label: "Baza wiedzy" },
   { href: "/think", label: "Myślenie" },
   { href: "/fewshot", label: "Słownik" },
   { href: "/format", label: "Formater" },

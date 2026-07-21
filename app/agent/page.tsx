@@ -1,10 +1,16 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
 import { DiagnosticsPanel } from "../diagnostics-panel";
-import { buildTimeline, downloadImage, summarizeOutput, TOOL_META } from "../tool-ui";
+import {
+  buildTimeline,
+  downloadImage,
+  splitCitation,
+  summarizeOutput,
+  TOOL_META,
+} from "../tool-ui";
 import { useLiveElapsed } from "../use-live-elapsed";
 
 const MAX_STEPS = 8;
@@ -16,6 +22,7 @@ const TOOLS_PANEL = [
   { emoji: "📄", label: "Czytanie stron" },
   { emoji: "🎨", label: "Generowanie obrazów" },
   { emoji: "👁️", label: "Analiza obrazów" },
+  { emoji: "📚", label: "Baza wiedzy" },
 ];
 
 const SCENARIOS = [
@@ -24,6 +31,7 @@ const SCENARIOS = [
   "Ile to 23% VAT z 8500 PLN? Podaj kwotę brutto i netto",
   "Jakie są najnowsze wiadomości o AI? Wygeneruj grafikę do posta o tym",
   "Wyszukaj w Google 'best coffee shops Kraków' i streszcz wyniki",
+  "Ile kosztuje pakiet Premium?",
 ];
 
 export default function Agent() {
@@ -263,8 +271,22 @@ export default function Agent() {
 
                   <div>
                     {message.parts.map((part, i) => {
-                      if (part.type === "text")
-                        return <span key={i}>{part.text}</span>;
+                      if (part.type === "text") {
+                        const { body, label, citation } = splitCitation(part.text);
+                        return (
+                          <Fragment key={i}>
+                            <span>{body}</span>
+                            {citation && (
+                              <div className="mt-2 flex items-center gap-1.5 border-t border-[var(--border)] pt-2 text-xs text-[var(--text-secondary)]">
+                                <span>📎</span>
+                                <span>
+                                  {label}: {citation}
+                                </span>
+                              </div>
+                            )}
+                          </Fragment>
+                        );
+                      }
                       if (
                         part.type === "file" &&
                         part.mediaType.startsWith("image/")
