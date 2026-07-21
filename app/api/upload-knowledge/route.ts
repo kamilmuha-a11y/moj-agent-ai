@@ -1,6 +1,6 @@
 import { ApiError, GoogleGenAI } from "@google/genai";
 import { splitIntoChunks } from "../../../lib/chunking";
-import { supabaseAdmin } from "../../../lib/supabase-admin";
+import { supabaseAdmin, getVerifiedUserId } from "../../../lib/supabase-admin";
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -9,7 +9,7 @@ const ai = new GoogleGenAI({
 // Streams newline-delimited JSON progress events so the client can render
 // a real "fragment X z Y" bar instead of a single opaque request/response.
 export async function POST(req: Request) {
-  const { title, content, userId } = await req.json();
+  const { title, content } = await req.json();
 
   if (!title || typeof title !== "string" || !title.trim()) {
     return Response.json({ error: "Brak tytułu dokumentu." }, { status: 400 });
@@ -17,7 +17,10 @@ export async function POST(req: Request) {
   if (!content || typeof content !== "string" || !content.trim()) {
     return Response.json({ error: "Brak treści dokumentu." }, { status: 400 });
   }
-  if (!userId || typeof userId !== "string") {
+  // supabaseAdmin bypasses RLS, so the userId that scopes this insert must
+  // come from the caller's verified session, never from the request body.
+  const userId = await getVerifiedUserId(req);
+  if (!userId) {
     return Response.json({ error: "Musisz być zalogowany, aby dodać dokument." }, { status: 401 });
   }
 

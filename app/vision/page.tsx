@@ -1,9 +1,10 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
-import { useAuth } from "../auth-context";
+import { getAuthHeaders } from "../../lib/supabase";
 import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
@@ -15,9 +16,9 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 export default function Vision() {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
-  const { messages, sendMessage, status, error: chatError } = useChat();
+  const { messages, sendMessage, status, error: chatError } = useChat({
+    transport: new DefaultChatTransport({ headers: getAuthHeaders }),
+  });
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,7 +51,6 @@ export default function Vision() {
           },
         ],
       },
-      { body: { userId } },
     );
     setInput("");
   }

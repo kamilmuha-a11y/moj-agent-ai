@@ -1,9 +1,10 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
-import { useAuth } from "../auth-context";
+import { getAuthHeaders } from "../../lib/supabase";
 import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
@@ -14,9 +15,9 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 export default function Search() {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
-  const { messages, sendMessage, status, error } = useChat();
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ headers: getAuthHeaders }),
+  });
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -38,7 +39,6 @@ export default function Search() {
           ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
           : undefined,
       },
-      { body: { userId } },
     );
     setInput("");
     attachment.clear();

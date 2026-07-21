@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "../../lib/supabase";
+import { supabase, getAuthHeaders } from "../../lib/supabase";
 import { useAuth } from "../auth-context";
 
 type DocumentSummary = {
@@ -86,8 +86,8 @@ export default function Upload() {
     try {
       const res = await fetch("/api/upload-knowledge", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, userId }),
+        headers: { "Content-Type": "application/json", ...(await getAuthHeaders()) },
+        body: JSON.stringify({ title, content }),
       });
 
       if (!res.ok || !res.body) {

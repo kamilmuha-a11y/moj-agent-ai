@@ -1,9 +1,10 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
-import { useAuth } from "../auth-context";
+import { getAuthHeaders } from "../../lib/supabase";
 import { DiagnosticsPanel } from "../diagnostics-panel";
 import {
   buildTimeline,
@@ -36,11 +37,10 @@ const SCENARIOS = [
 ];
 
 export default function Agent() {
-  const { user } = useAuth();
-  const userId = user?.id ?? null;
   const [turnDurations, setTurnDurations] = useState<number[]>([]);
   const turnStartRef = useRef<number | null>(null);
   const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ headers: getAuthHeaders }),
     onFinish: () => {
       if (turnStartRef.current !== null) {
         const duration = (Date.now() - turnStartRef.current) / 1000;
@@ -77,7 +77,6 @@ export default function Agent() {
             ]
           : undefined,
       },
-      { body: { userId } },
     );
     setInput("");
     attachment.clear();

@@ -1,11 +1,11 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { getToolName, isToolUIPart } from "ai";
+import { DefaultChatTransport, getToolName, isToolUIPart } from "ai";
 import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
-import { supabase } from "../../lib/supabase";
+import { supabase, getAuthHeaders } from "../../lib/supabase";
 import { useAuth } from "../auth-context";
 import { splitCitation } from "../tool-ui";
 
@@ -61,6 +61,7 @@ function ChatInner() {
   const [userPreferences, setUserPreferences] = useState<Record<string, string>>({});
   const greetedRef = useRef(false);
   const { messages, sendMessage, setMessages, status, error } = useChat({
+    transport: new DefaultChatTransport({ headers: getAuthHeaders }),
     onFinish: ({ message }) => {
       const text = message.parts
         .filter((p) => p.type === "text")
@@ -246,7 +247,7 @@ function ChatInner() {
           ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
           : undefined,
       },
-      { body: { mode, model, userId, userName, userPreferences } },
+      { body: { mode, model, userName, userPreferences } },
     );
     setInput("");
     attachment.clear();

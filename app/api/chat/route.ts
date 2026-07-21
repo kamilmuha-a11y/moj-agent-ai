@@ -10,6 +10,7 @@ import {
 } from "../tools";
 import { friendlyStreamError } from "../stream-error";
 import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
+import { getVerifiedUserId } from "../../../lib/supabase-admin";
 
 if (process.env.ENABLE_SEARCH_GROUNDING === "true") {
   console.warn(
@@ -130,17 +131,21 @@ export async function POST(req: Request) {
     messages,
     mode,
     model,
-    userId,
     userName,
     userPreferences,
   }: {
     messages: UIMessage[];
     mode?: Mode;
     model?: ModelKey;
-    userId?: string;
     userName?: string | null;
     userPreferences?: Record<string, string>;
   } = await req.json();
+
+  // Never trust a userId from the request body — supabaseAdmin (used below
+  // and inside createUserProfileTools/createSearchKnowledgeTool) bypasses
+  // RLS, so a client-supplied id would let anyone read or overwrite another
+  // user's profile/documents. Derive it from their verified session instead.
+  const userId = await getVerifiedUserId(req);
 
   const system =
     (SYSTEM_PROMPTS[mode ?? "casual"] ?? SYSTEM_PROMPTS.casual) +
