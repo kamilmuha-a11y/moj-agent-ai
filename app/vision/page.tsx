@@ -1,8 +1,9 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
   "Co widzisz na tym obrazie?",
@@ -119,46 +120,111 @@ export default function Vision() {
           onClick={() => fileInputRef.current?.click()}
           onPaste={attachment.handlePaste}
           tabIndex={0}
-          className={`flex flex-1 cursor-pointer flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-12 text-center transition-colors ${
+          className={`card-fade-in flex flex-1 cursor-pointer flex-col items-center justify-center gap-6 rounded-2xl border-2 border-dashed p-10 text-center outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
             attachment.isDragging
               ? "border-[var(--accent)] bg-[var(--accent-soft)]"
               : "border-[var(--border)] bg-[var(--panel-bg)]"
           }`}
         >
-          <p className="text-lg font-medium text-[var(--foreground)]">
-            📸 Ctrl+V - wklej screenshot
-          </p>
-          <p className="text-lg font-medium text-[var(--foreground)]">
-            📁 Kliknij - wybierz plik
-          </p>
-          <p className="text-lg font-medium text-[var(--foreground)]">
-            🖱️ Przeciągnij - upuść obraz
-          </p>
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-soft)] text-3xl">
+            🖼️
+          </div>
+
+          <div>
+            <p className="text-lg font-semibold text-[var(--foreground)]">
+              Dodaj obraz do analizy
+            </p>
+            <p className="mt-1 text-sm text-[var(--text-secondary)]">
+              Przeciągnij plik w dowolne miejsce tej karty albo wybierz jedną z opcji poniżej
+            </p>
+          </div>
+
+          <div className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-5 transition-colors">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#3a1e5f] text-lg text-[#d3b3ff]">
+                📋
+              </span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Wklej ze schowka
+              </span>
+              <kbd className="rounded-md border border-[var(--border)] bg-[var(--panel-bg)] px-2 py-0.5 text-xs text-[var(--text-secondary)]">
+                Ctrl+V
+              </kbd>
+            </div>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                fileInputRef.current?.click();
+              }}
+              className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-5 transition-colors hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1e3a5f] text-lg text-[#9ecbff]">
+                📁
+              </span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Wybierz plik
+              </span>
+              <span className="rounded-md bg-[var(--accent)] px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-[var(--accent-strong)]">
+                Przeglądaj
+              </span>
+            </button>
+
+            <div className="flex flex-col items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--panel-alt)] px-4 py-5 transition-colors">
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--success)]/15 text-lg text-[var(--success)]">
+                🖱️
+              </span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                Przeciągnij i upuść
+              </span>
+              <span className="text-xs text-[var(--text-secondary)]">gdziekolwiek tutaj</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-[var(--text-secondary)]">PNG, JPG, GIF, WEBP · max 4MB</p>
         </div>
       ) : (
         <>
           {hasImage && (
-            <div className="flex items-center gap-3 rounded-lg border border-[var(--border)] bg-[var(--panel-bg)] p-3">
+            <div className="card-fade-in flex items-center gap-4 rounded-xl border border-[var(--border)] bg-[var(--panel-bg)] p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={attachment.image!.url}
                 alt="Podgląd załącznika"
-                className="max-h-[160px] rounded-lg border border-[var(--border)]"
+                className="h-[88px] w-[88px] shrink-0 rounded-lg border border-[var(--border)] object-cover"
               />
-              <span className="flex-1 text-sm text-[var(--text-secondary)]">
-                📎 Screenshot - zadaj pytanie o ten obraz
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  attachment.clear();
-                  setRemix(null);
-                  setRemixError("");
-                }}
-                className="rounded-lg border border-[var(--border)] px-2 py-1 text-xs text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-              >
-                ✕
-              </button>
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--foreground)]">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--success)]/15 text-[var(--success)]">
+                    ✓
+                  </span>
+                  Obraz gotowy do analizy
+                </p>
+                <p className="mt-0.5 truncate text-xs text-[var(--text-secondary)]">
+                  {attachment.image!.filename || "Wklejony obraz"}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+                >
+                  🔄 Zmień
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    attachment.clear();
+                    setRemix(null);
+                    setRemixError("");
+                  }}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] transition-colors hover:border-red-400 hover:text-red-400"
+                >
+                  🗑️ Usuń
+                </button>
+              </div>
             </div>
           )}
 
@@ -199,8 +265,22 @@ export default function Vision() {
                       }`}
                     >
                       {message.parts.map((part, i) => {
-                        if (part.type === "text")
-                          return <span key={i}>{part.text}</span>;
+                        if (part.type === "text") {
+                          const { body, label, citation } = splitCitation(part.text);
+                          return (
+                            <Fragment key={i}>
+                              <span>{body}</span>
+                              {citation && (
+                                <div className="mt-2 flex items-center gap-1.5 border-t border-[var(--border)] pt-2 text-xs text-[var(--text-secondary)]">
+                                  <span>📎</span>
+                                  <span>
+                                    {label}: {citation}
+                                  </span>
+                                </div>
+                              )}
+                            </Fragment>
+                          );
+                        }
                         if (
                           part.type === "file" &&
                           part.mediaType.startsWith("image/")
