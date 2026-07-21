@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "./auth-context";
+import { supabase } from "../lib/supabase";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -21,6 +23,7 @@ const NAV_ITEMS = [
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
 
   return (
     <nav className="flex shrink-0 items-center gap-2 overflow-x-auto border-b border-[var(--border)] bg-[var(--sidebar-bg)] px-4 py-2.5">
@@ -51,6 +54,21 @@ export function SidebarNav() {
         <span className="h-2 w-2 rounded-full bg-[var(--success)]" />
         Gemini API połączone
       </span>
+
+      {user && (
+        <div className="ml-2 flex shrink-0 items-center gap-2">
+          <span className="hidden max-w-[160px] truncate text-xs text-[var(--text-secondary)] sm:inline">
+            {user.email}
+          </span>
+          <button
+            type="button"
+            onClick={() => supabase.auth.signOut()}
+            className="shrink-0 rounded-md border border-[var(--border)] px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] transition-colors hover:border-[var(--accent)] hover:text-[var(--foreground)]"
+          >
+            Wyloguj
+          </button>
+        </div>
+      )}
     </nav>
   );
 }

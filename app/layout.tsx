@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SidebarNav } from "./sidebar-nav";
+import { AppShell } from "./app-shell";
+import { AuthProvider } from "./auth-context";
 
 export const metadata: Metadata = {
   title: "Marta Wiśniewska — Compliance | Hemmersbach",
@@ -15,10 +16,9 @@ export default function RootLayout({
   return (
     <html lang="pl" className="h-full antialiased">
       <body className="flex h-dvh flex-col overflow-hidden">
-        <SidebarNav />
-        <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          {children}
-        </main>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

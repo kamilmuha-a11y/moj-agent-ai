@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { useAuth } from "../auth-context";
 import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
@@ -13,6 +14,8 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 export default function Search() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { messages, sendMessage, status, error } = useChat();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -28,12 +31,15 @@ export default function Search() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if ((!input.trim() && !attachment.image) || isLoading) return;
-    sendMessage({
-      text: input,
-      files: attachment.image
-        ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
-        : undefined,
-    });
+    sendMessage(
+      {
+        text: input,
+        files: attachment.image
+          ? [{ type: "file", mediaType: attachment.image.mediaType, url: attachment.image.url, filename: attachment.image.filename }]
+          : undefined,
+      },
+      { body: { userId } },
+    );
     setInput("");
     attachment.clear();
   }

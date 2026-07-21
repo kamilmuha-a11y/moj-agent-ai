@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { useAuth } from "../auth-context";
 import { DiagnosticsPanel } from "../diagnostics-panel";
 import {
   buildTimeline,
@@ -35,6 +36,8 @@ const SCENARIOS = [
 ];
 
 export default function Agent() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [turnDurations, setTurnDurations] = useState<number[]>([]);
   const turnStartRef = useRef<number | null>(null);
   const { messages, sendMessage, status, error } = useChat({
@@ -60,19 +63,22 @@ export default function Agent() {
   function sendWithAttachment(text: string) {
     if ((!text.trim() && !attachment.image) || isLoading) return;
     turnStartRef.current = Date.now();
-    sendMessage({
-      text,
-      files: attachment.image
-        ? [
-            {
-              type: "file",
-              mediaType: attachment.image.mediaType,
-              url: attachment.image.url,
-              filename: attachment.image.filename,
-            },
-          ]
-        : undefined,
-    });
+    sendMessage(
+      {
+        text,
+        files: attachment.image
+          ? [
+              {
+                type: "file",
+                mediaType: attachment.image.mediaType,
+                url: attachment.image.url,
+                filename: attachment.image.filename,
+              },
+            ]
+          : undefined,
+      },
+      { body: { userId } },
+    );
     setInput("");
     attachment.clear();
   }

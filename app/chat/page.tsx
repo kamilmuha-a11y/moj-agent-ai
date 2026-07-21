@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Fragment, Suspense, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../auth-context";
 import { splitCitation } from "../tool-ui";
 
 type Mode = "casual" | "ekspert" | "kreatywny";
@@ -49,12 +50,13 @@ export default function Chat() {
 }
 
 function ChatInner() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const searchParams = useSearchParams();
   const requestedConversationId = searchParams.get("conversationId");
   const conversationIdRef = useRef<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [profileLoading, setProfileLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [userPreferences, setUserPreferences] = useState<Record<string, string>>({});
   const greetedRef = useRef(false);
@@ -100,6 +102,7 @@ function ChatInner() {
   const isLoading = status === "submitted" || status === "streaming";
 
   useEffect(() => {
+    if (!userId) return;
     (async () => {
       let conversation = null;
       if (requestedConversationId) {
@@ -107,6 +110,7 @@ function ChatInner() {
           .from("conversations")
           .select("id, title, updated_at")
           .eq("id", requestedConversationId)
+          .eq("user_id", userId)
           .maybeSingle();
         conversation = data;
       }
@@ -114,6 +118,7 @@ function ChatInner() {
         const { data } = await supabase
           .from("conversations")
           .select("id, title, updated_at")
+          .eq("user_id", userId)
           .order("updated_at", { ascending: false })
           .limit(1)
           .maybeSingle();
@@ -141,33 +146,27 @@ function ChatInner() {
 
       setHistoryLoading(false);
     })();
-  }, [setMessages, requestedConversationId]);
+  }, [setMessages, requestedConversationId, userId]);
 
   useEffect(() => {
+    if (!userId) return;
     (async () => {
-      let id = localStorage.getItem("user_id");
-      if (!id) {
-        id = crypto.randomUUID();
-        localStorage.setItem("user_id", id);
-      }
-
       const { data: profile } = await supabase
         .from("user_profiles")
         .select("name, preferences")
-        .eq("id", id)
+        .eq("id", userId)
         .maybeSingle();
 
       if (profile) {
         setUserName(profile.name ?? null);
         setUserPreferences((profile.preferences as Record<string, string>) ?? {});
       } else {
-        await supabase.from("user_profiles").insert({ id });
+        await supabase.from("user_profiles").insert({ id: userId });
       }
 
-      setUserId(id);
       setProfileLoading(false);
     })();
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (historyLoading || profileLoading || greetedRef.current) return;
@@ -184,9 +183,10 @@ function ChatInner() {
 
   async function ensureConversationId(firstMessageText: string): Promise<string> {
     if (conversationIdRef.current) return conversationIdRef.current;
+    if (!userId) throw new Error("Nie jesteś zalogowany.");
     const { data, error } = await supabase
       .from("conversations")
-      .insert({ title: truncateTitle(firstMessageText) })
+      .insert({ title: truncateTitle(firstMessageText), user_id: userId })
       .select()
       .single();
     if (error || !data) throw error ?? new Error("Nie udało się utworzyć rozmowy");

@@ -4,37 +4,51 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../auth-context";
 
 type ConversationRow = { id: string; title: string | null; updated_at: string };
 type MessageRow = { id: string; role: "user" | "assistant"; content: string; created_at: string };
 
 export default function HistoryDetail() {
   const params = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [conversation, setConversation] = useState<ConversationRow | null | undefined>(undefined);
   const [messages, setMessages] = useState<MessageRow[]>([]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
     (async () => {
       const { data: convo } = await supabase
         .from("conversations")
         .select("id, title, updated_at")
         .eq("id", params.id)
+        .eq("user_id", userId)
         .maybeSingle();
+
+      if (!convo) {
+        if (!cancelled) {
+          setConversation(null);
+          setMessages([]);
+        }
+        return;
+      }
+
       const { data: msgs } = await supabase
         .from("messages")
         .select("id, role, content, created_at")
         .eq("conversation_id", params.id)
         .order("created_at", { ascending: true });
       if (!cancelled) {
-        setConversation(convo ?? null);
+        setConversation(convo);
         setMessages(msgs ?? []);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.id]);
+  }, [params.id, userId]);
 
   return (
     <div className="mx-auto flex w-full min-h-0 max-w-4xl flex-1 flex-col gap-4 overflow-hidden p-6">

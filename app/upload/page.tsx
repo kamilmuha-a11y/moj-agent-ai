@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../auth-context";
 
 type DocumentSummary = {
   title: string;
@@ -15,10 +16,11 @@ type SearchResult = {
   similarity: number;
 };
 
-async function fetchDocumentSummaries(): Promise<DocumentSummary[]> {
+async function fetchDocumentSummaries(userId: string): Promise<DocumentSummary[]> {
   const { data } = await supabase
     .from("documents")
     .select("title, created_at")
+    .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
   if (!data) return [];
@@ -39,6 +41,8 @@ async function fetchDocumentSummaries(): Promise<DocumentSummary[]> {
 }
 
 export default function Upload() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -54,23 +58,25 @@ export default function Upload() {
   const [testError, setTestError] = useState("");
 
   const refreshDocuments = useCallback(async () => {
-    const summaries = await fetchDocumentSummaries();
+    if (!userId) return;
+    const summaries = await fetchDocumentSummaries(userId);
     setDocuments(summaries);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
-    fetchDocumentSummaries().then((summaries) => {
+    fetchDocumentSummaries(userId).then((summaries) => {
       if (!cancelled) setDocuments(summaries);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim() || !content.trim() || isSaving) return;
+    if (!title.trim() || !content.trim() || isSaving || !userId) return;
 
     setIsSaving(true);
     setError("");
@@ -81,7 +87,7 @@ export default function Upload() {
       const res = await fetch("/api/upload-knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, userId }),
       });
 
       if (!res.ok || !res.body) {
@@ -127,8 +133,9 @@ export default function Upload() {
   }
 
   async function handleDelete(docTitle: string) {
+    if (!userId) return;
     setDeletingTitle(docTitle);
-    await supabase.from("documents").delete().eq("title", docTitle);
+    await supabase.from("documents").delete().eq("title", docTitle).eq("user_id", userId);
     setConfirmingTitle(null);
     setDeletingTitle(null);
     await refreshDocuments();
@@ -136,7 +143,7 @@ export default function Upload() {
 
   async function handleTestSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!testQuery.trim() || testLoading) return;
+    if (!testQuery.trim() || testLoading || !userId) return;
 
     setTestLoading(true);
     setTestError("");
@@ -158,6 +165,7 @@ export default function Upload() {
         query_embedding: embedData.embedding,
         match_threshold: 0.3,
         match_count: 5,
+        p_user_id: userId,
       });
 
       if (error) {

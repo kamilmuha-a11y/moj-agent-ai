@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { tool } from "ai";
 import { z } from "zod";
-import { supabase } from "../../lib/supabase";
+import { supabaseAdmin } from "../../lib/supabase-admin";
 
 const genAI = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -273,67 +273,70 @@ export const searchWikipedia = tool({
   },
 });
 
-export const searchKnowledge = tool({
-  description:
-    "Wyszukuje informacje w bazie wiedzy firmy (cenniki, FAQ, regulaminy, oferty). " +
-    "Używaj ZAWSZE gdy użytkownik pyta o: ceny, pakiety, koszty; procedury, regulaminy, warunki; " +
-    "FAQ, pytania o firmę/usługi; cokolwiek co może być w dokumentach firmowych.",
-  inputSchema: z.object({
-    query: z.string().describe("Pytanie użytkownika, np. 'ile kosztuje pakiet premium'"),
-  }),
-  execute: async ({ query }) => {
-    if (!query.trim()) return { results: [], total_found: 0, message: "Podaj czego mam szukać." };
+export function createSearchKnowledgeTool(userId: string) {
+  return tool({
+    description:
+      "Wyszukuje informacje w bazie wiedzy firmy (cenniki, FAQ, regulaminy, oferty). " +
+      "Używaj ZAWSZE gdy użytkownik pyta o: ceny, pakiety, koszty; procedury, regulaminy, warunki; " +
+      "FAQ, pytania o firmę/usługi; cokolwiek co może być w dokumentach firmowych.",
+    inputSchema: z.object({
+      query: z.string().describe("Pytanie użytkownika, np. 'ile kosztuje pakiet premium'"),
+    }),
+    execute: async ({ query }) => {
+      if (!query.trim()) return { results: [], total_found: 0, message: "Podaj czego mam szukać." };
 
-    try {
-      const embedResponse = await genAI.models.embedContent({
-        model: "gemini-embedding-001",
-        contents: query,
-        config: { outputDimensionality: 768 },
-      });
-      const values = embedResponse.embeddings?.[0]?.values;
+      try {
+        const embedResponse = await genAI.models.embedContent({
+          model: "gemini-embedding-001",
+          contents: query,
+          config: { outputDimensionality: 768 },
+        });
+        const values = embedResponse.embeddings?.[0]?.values;
 
-      if (!values) {
-        return { results: [], total_found: 0, message: "Nie udało się przetworzyć zapytania." };
-      }
+        if (!values) {
+          return { results: [], total_found: 0, message: "Nie udało się przetworzyć zapytania." };
+        }
 
-      const { data, error } = await supabase.rpc("match_documents", {
-        query_embedding: values,
-        match_threshold: 0.5,
-        match_count: 5,
-      });
+        const { data, error } = await supabaseAdmin.rpc("match_documents", {
+          query_embedding: values,
+          match_threshold: 0.5,
+          match_count: 5,
+          p_user_id: userId,
+        });
 
-      if (error) {
+        if (error) {
+          return { results: [], total_found: 0, message: "Błąd wyszukiwania w bazie wiedzy." };
+        }
+
+        const results = (data ?? []).map(
+          (row: {
+            title: string;
+            content: string;
+            similarity: number;
+            metadata?: { source?: string; chunk_index?: number; total_chunks?: number };
+            created_at?: string;
+          }) => ({
+            title: row.title,
+            content: row.content,
+            similarity: row.similarity,
+            metadata: row.metadata,
+            added_at: row.created_at,
+          }),
+        );
+
+        if (results.length === 0) {
+          return { results: [], total_found: 0, message: "Nie znaleziono informacji w bazie wiedzy." };
+        }
+
+        const source_documents = Array.from(new Set(results.map((r: { title: string }) => r.title)));
+
+        return { results, total_found: results.length, source_documents };
+      } catch {
         return { results: [], total_found: 0, message: "Błąd wyszukiwania w bazie wiedzy." };
       }
-
-      const results = (data ?? []).map(
-        (row: {
-          title: string;
-          content: string;
-          similarity: number;
-          metadata?: { source?: string; chunk_index?: number; total_chunks?: number };
-          created_at?: string;
-        }) => ({
-          title: row.title,
-          content: row.content,
-          similarity: row.similarity,
-          metadata: row.metadata,
-          added_at: row.created_at,
-        }),
-      );
-
-      if (results.length === 0) {
-        return { results: [], total_found: 0, message: "Nie znaleziono informacji w bazie wiedzy." };
-      }
-
-      const source_documents = Array.from(new Set(results.map((r: { title: string }) => r.title)));
-
-      return { results, total_found: results.length, source_documents };
-    } catch {
-      return { results: [], total_found: 0, message: "Błąd wyszukiwania w bazie wiedzy." };
-    }
-  },
-});
+    },
+  });
+}
 
 type Note = { id: string; text: string; createdAt: string };
 // In-memory only — resets on server restart, shared across all sessions (no DB in this project).
@@ -372,7 +375,7 @@ export function createUserProfileTools(userId: string) {
       name: z.string().describe("Imię użytkownika, np. 'Paweł'"),
     }),
     execute: async ({ name }) => {
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from("user_profiles")
         .update({ name })
         .eq("id", userId);
@@ -389,14 +392,14 @@ export function createUserProfileTools(userId: string) {
       value: z.string().describe("Wartość preferencji, np. 'pizza'"),
     }),
     execute: async ({ key, value }) => {
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await supabaseAdmin
         .from("user_profiles")
         .select("preferences")
         .eq("id", userId)
         .single();
       if (fetchError) return { success: false, message: "Nie udało się odczytać profilu." };
       const preferences = { ...((data?.preferences as Record<string, string>) ?? {}), [key]: value };
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from("user_profiles")
         .update({ preferences })
         .eq("id", userId);

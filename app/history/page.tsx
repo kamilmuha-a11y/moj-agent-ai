@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../auth-context";
 
 type ConversationSummary = {
   id: string;
@@ -32,10 +33,11 @@ function formatRelativeDate(iso: string): string {
   return date.toLocaleDateString("pl-PL", { day: "numeric", month: "long", year: "numeric" });
 }
 
-async function fetchConversationSummaries(): Promise<ConversationSummary[]> {
+async function fetchConversationSummaries(userId: string): Promise<ConversationSummary[]> {
   const { data: convos } = await supabase
     .from("conversations")
     .select("id, title, updated_at")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
 
   if (!convos || convos.length === 0) return [];
@@ -63,30 +65,35 @@ async function fetchConversationSummaries(): Promise<ConversationSummary[]> {
 }
 
 export default function History() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const [conversations, setConversations] = useState<ConversationSummary[] | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const summaries = await fetchConversationSummaries();
+    if (!userId) return;
+    const summaries = await fetchConversationSummaries(userId);
     setConversations(summaries);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
     let cancelled = false;
-    fetchConversationSummaries().then((summaries) => {
+    fetchConversationSummaries(userId).then((summaries) => {
       if (!cancelled) setConversations(summaries);
     });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   async function handleDelete(id: string) {
+    if (!userId) return;
     setDeletingId(id);
     await supabase.from("messages").delete().eq("conversation_id", id);
-    await supabase.from("conversations").delete().eq("id", id);
+    await supabase.from("conversations").delete().eq("id", id).eq("user_id", userId);
     setConfirmingId(null);
     setDeletingId(null);
     setToast("Rozmowa usunięta");

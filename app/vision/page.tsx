@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { useImageAttachment } from "../useImageAttachment";
+import { useAuth } from "../auth-context";
 import { splitCitation } from "../tool-ui";
 
 const EXAMPLE_QUESTIONS = [
@@ -14,6 +15,8 @@ const EXAMPLE_QUESTIONS = [
 ];
 
 export default function Vision() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { messages, sendMessage, status, error: chatError } = useChat();
   const [input, setInput] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -35,17 +38,20 @@ export default function Vision() {
 
   function sendWithImage(text: string) {
     if (!text.trim() || isLoading || !attachment.image) return;
-    sendMessage({
-      text,
-      files: [
-        {
-          type: "file",
-          mediaType: attachment.image.mediaType,
-          url: attachment.image.url,
-          filename: attachment.image.filename,
-        },
-      ],
-    });
+    sendMessage(
+      {
+        text,
+        files: [
+          {
+            type: "file",
+            mediaType: attachment.image.mediaType,
+            url: attachment.image.url,
+            filename: attachment.image.filename,
+          },
+        ],
+      },
+      { body: { userId } },
+    );
     setInput("");
   }
 

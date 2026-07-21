@@ -2,11 +2,11 @@ import { google } from "@ai-sdk/google";
 import { convertToModelMessages, stepCountIs, streamText, UIMessage } from "ai";
 import {
   calculator,
+  createSearchKnowledgeTool,
   createUserProfileTools,
   currentDateTime,
   generateImage,
   readWebPage,
-  searchKnowledge,
 } from "../tools";
 import { friendlyStreamError } from "../stream-error";
 import { ERROR_HANDLING_PROMPT } from "../error-handling-prompt";
@@ -158,7 +158,7 @@ export async function POST(req: Request) {
       calculator,
       currentDateTime,
       generateImage,
-      searchKnowledge,
+      ...(userId ? { searchKnowledge: createSearchKnowledgeTool(userId) } : {}),
       ...(userId ? createUserProfileTools(userId) : {}),
     },
     stopWhen: stepCountIs(8),
